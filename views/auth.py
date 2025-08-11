@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 
+from typing import Any, Dict
 from functools import wraps
 import os
 from datetime import datetime, timedelta
@@ -14,10 +15,23 @@ TOKEN_EXPIRE_IN_MINUTES = os.getenv("TOKEN_EXPIRE_IN_MINUTES")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-def decode_token(token: str) -> str:
+def decode_token(token: str) -> Dict[str, Any]:
+    """
+    Decodes token for verifiction if user is logged in
+
+    Args:
+        token (str): JWT token from user session
+
+    Returns:
+        Dict[str, Any]: Dictionary contains decoded payload 
+
+    Rasises:
+        HTTPException: If the token is missing, expired, or invalid.
+    """
+
     try:
         if not token:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is required.")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is required, but is required.")
 
         payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
         return payload
@@ -26,7 +40,19 @@ def decode_token(token: str) -> str:
     except jwt.InvalidTokenError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token.")
 
-def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_IN_MINUTES)):
+def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_IN_MINUTES)) -> dict:
+    """
+    Creates token for user session from it's username and encodes it by using choosen algorithm and secret key using JWT
+
+    Args:
+        data (dict): Dictionary with  username as "sub" key
+        expire (timedelta): Difference between two timestamps. Optional with TOKEN_EXPIRE_IN_MINUTES default
+
+    Returns:
+        str: Encoded JWT token that contains:
+            "sub": Username
+            "exp": Expiration timestamp
+    """
     to_encode = data.copy()
     expire_time = datetime.utcnow() + expire
     to_encode.update({"exp": expire_time})
