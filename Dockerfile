@@ -1,15 +1,23 @@
-FROM python:3.12.4-slim
+FROM python:3.10.7-slim
 
-WORKDIR /main
-
+# Coping a necessary files
 COPY . .
 
+# Installing curl
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+
+RUN apt-get update && apt-get install -y libpq-dev gcc python3-dev
+
+# Installing required packages
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Importing environmental variables
 ENV SECRET_KEY=${SECRET_KEY}
 ENV ALGORITHM=${ALGORITHM}
 ENV DATABASE_URL=${DATABASE_URL}
 ENV TOKEN_EXPIRE_IN_MINUTES=${TOKEN_EXPIRE_IN_MINUTES}
 
+# Starting a service
 CMD ["uvicorn", "main:app", "--host", "127.0.0.1", "--port", "8000"]

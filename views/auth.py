@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, Form
 from fastapi.responses import RedirectResponse
 
 from typing import Any, Dict
@@ -6,14 +6,16 @@ from functools import wraps
 import os
 from datetime import datetime, timedelta
 
+from main import app 
+from db.db import *
+
 from hashlib import sha1
 import jwt
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
-TOKEN_EXPIRE_IN_MINUTES = os.getenv("TOKEN_EXPIRE_IN_MINUTES")
-
-router = APIRouter(prefix="/auth", tags=["auth"])
+TOKEN_EXPIRE_IN_MINUTES = int(os.getenv("TOKEN_EXPIRE_IN_MINUTES"))
+user_tokens = {}
 
 def decode_token(token: str) -> Dict[str, Any]:
     """
@@ -59,8 +61,6 @@ def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_
     token = jwt.encode(to_encode, SECRET_KEY, ALGORITHM)
     return token
 
-# TODO: Add autorization for 2 levels. author, participant 
-
 def auth_required(func):
     @wraps(func)
     def wrapper(*args, request: Request, **kwargs):
@@ -76,3 +76,18 @@ def auth_required(func):
 
         return func(*args, request=request, **kwargs)
     return wrapper
+
+@app.post("/auth")
+def regiser_user(user: User, repeat_password: str):
+    if user.password != repeat_password:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Password and Repeat Password are not the same")
+
+    with get_db() as conn:
+        try:
+            insert_user(conn, user)
+        except Exception as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+
+        
