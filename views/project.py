@@ -1,10 +1,12 @@
+from fastapi import Request
+
 from main import app
 from auth import auth_required
-
+from db.db import Project
 
 # TODO: POST /projects - Create project from details (name, description). Automatically gives access to created project to user, making him the owner (admin of the project)
 @app.post("/project")
-def post_project():
+def post_project(requset: Request, project: Project):
     pass
 
 # TODO: GET /projects - Get all projects, accessible for a user. Returns list of projects full info(details + documents)

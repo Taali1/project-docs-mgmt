@@ -42,7 +42,7 @@ def decode_token(token: str) -> Dict[str, Any]:
     except jwt.InvalidTokenError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
 
-def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_IN_MINUTES)) -> dict:
+def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_IN_MINUTES)) -> str:
     """
     Creates token for user session from it's username and encodes it by using choosen algorithm and secret key using JWT
 
@@ -119,7 +119,7 @@ def post_user(user: User, repeat_password: str) -> Response:
     return Response("Registerd succesfuly", status_code=201)
 
 @app.post("/login")
-def post_login(request: Request, user: User):
+def post_login(request: Request, user: User) -> Response:
     """
     Logs in user and creates JWT session token
 
