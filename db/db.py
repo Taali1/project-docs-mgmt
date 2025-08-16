@@ -96,7 +96,7 @@ def update_project(conn, project: Project):
         WHERE project_id = {project.project_id}
         ;""")
 
-def add_permission(conn, login: str, project_id: int, permission: Permission) -> None:
+def insert_permission(conn, login: str, project_id: int, permission: Permission) -> None:
     with conn.cursor() as cur:
         cur.execute("INSERT INTO user_project VALUES ({login}, {project_id}, {permission});", (login, project_id, permission))
         return 0
