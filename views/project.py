@@ -1,13 +1,32 @@
-from fastapi import Request
+from fastapi import Request, HTTPException, status, Response, Depends
 
 from main import app
-from auth import auth_required
-from db.db import Project
+from views.auth import auth_required, decode_token
+from db.db import get_db, Project, insert_project
 
 # TODO: POST /projects - Create project from details (name, description). Automatically gives access to created project to user, making him the owner (admin of the project)
+
+def get_current_user(request: Request):
+    token = request.session.get("token")
+    if not token:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not logged in")
+    return decode_token(token)
+
+@auth_required
 @app.post("/project")
-def post_project(requset: Request, project: Project):
-    pass
+def post_project(project: Project, user_payload: dict = Depends(get_current_user)):
+    login = user_payload["sub"]
+
+    if not project.name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project name is required")
+
+    with get_db() as conn:
+        try:
+            insert_project(conn, login, project)
+        except Exception as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    return Response("Project added succesfuly", status_code=201)
+
 
 # TODO: GET /projects - Get all projects, accessible for a user. Returns list of projects full info(details + documents)
 

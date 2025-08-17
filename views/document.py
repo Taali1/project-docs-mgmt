@@ -1,5 +1,5 @@
 from main import app
-from auth import auth_required
+from views.auth import auth_required
 
 # TODO: GET /document/<document_id> - Download document, if the user has access to the corresponding project
 

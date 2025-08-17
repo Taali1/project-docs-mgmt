@@ -1,5 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi import HTTPException, status, Request, Response
 
 from typing import Any, Dict
 from functools import wraps
@@ -9,7 +8,6 @@ from datetime import datetime, timedelta
 from main import app 
 from db.db import *
 
-from hashlib import sha1
 import jwt
 
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -33,12 +31,12 @@ def decode_token(token: str) -> Dict[str, Any]:
 
     try:
         if not token:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is required")
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is required, please log in")
 
         payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
         return payload
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Expired token")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Expired token, please log in again")
     except jwt.InvalidTokenError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
 
@@ -76,12 +74,12 @@ def auth_required(func):
         token = request.session.get("token")
 
         if not token:
-            return HTTPException(status.HTTP_401_UNAUTHORIZED, "Not logged in")
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not logged in")
         
         try:
             decode_token(token)
         except HTTPException:
-            return HTTPException(status.HTTP_401_UNAUTHORIZED, "Provided token is invalid")
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Provided token is invalid")
 
         return func(*args, request=request, **kwargs)
     return wrapper
@@ -143,7 +141,7 @@ def post_login(request: Request, user: User) -> Response:
 
     token = create_token({"sub": user.login})
     request.session["token"] = token
-    
+
     user_tokens[user.login] = token
 
     return Response("Logged successfuly", status_code=202)
