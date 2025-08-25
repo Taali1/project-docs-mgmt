@@ -1,7 +1,8 @@
-from datetime import datetime
+from fastapi import HTTPException, status
 
 from db.models import *
 
+from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
@@ -99,6 +100,16 @@ def update_project(conn, project: Project):
 
         cur.execute(query, values)
 
+def delete_project(conn, user_id: str, project_id: int):
+    try:
+        if check_permission(conn, user_id, project_id) == "owner":
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM projects WHERE user_id = %s AND project_id = %s", (user_id, project_id))
+        else:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authorized for this action")
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+
 def select_projects_with_permissions(conn, user_id):
     with conn.cursor() as cur:
         cur.execute("""
@@ -108,49 +119,57 @@ def select_projects_with_permissions(conn, user_id):
             """, 
             (user_id,))
         result = cur.fetchall()
-    return [row["project_id"] for row in result]
+    return (row["project_id"] for row in result)
 
-def select_project_info(conn, project_id: int, user_id: str) -> dict:
-    
-    accessible_projects = select_projects_with_permissions(conn, user_id)
+def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
+    """
 
-    if not accessible_projects:
-        return {}
 
-    with conn.cursor() as cur:
-        cur.execute("SELECT * FROM projects WHERE project_id IN %s", (tuple(accessible_projects),))
-        
-        result = cur.fetchall()
-        return result
-
-def select_project_info_all(conn, user_id: str) -> dict:
-    accessible_projects = select_projects_with_permissions(conn, user_id)
+    """
 
     if not accessible_projects:
         return {}
 
+    if project_id is not None:
+        if check_permission() is not None:
+            cur.execute("SELECT * FROM projects WHERE project_id = %s", (accessible_projects,))
+            return cur.fetchone()
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+
+    else:
+        accessible_projects = select_projects_with_permissions(conn, user_id)
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM projects WHERE project_id IN %s", (tuple(accessible_projects),))
+            
+            rows = cur.fetchall()
+            result = {}
+
+            for row in rows:
+                result[row["project_id"]] = {
+                    "project_id": row["project_id"], 
+                    "name": row["name"], 
+                    "description": row["description"], 
+                    "created_at": row["created_at"], 
+                    "modified_at": row["modified_at"]
+                    }
+
+            return result
+
+def check_permission(conn, user_id: str, project_id: int) -> str:
     with conn.cursor() as cur:
-        cur.execute("SELECT * FROM projects WHERE project_id IN %s", (tuple(accessible_projects),))
-        
-        rows = cur.fetchall()
-        result = {}
-
-        for row in rows:
-            result[row["project_id"]] = {"project_id": row["project_id"], "name": row["name"], "description": row["description"], "created_at": row["created_at"], "modified_at": row["modified_at"]}
-
-        return result
-
-def check_permission(conn, user_id: str, project_id: int) -> bool:
-    with conn.cursor() as cur:
-        cur.execute("SELECT 1 FROM user_project WHERE user_id = %s AND project_id = %s", (user_id, project_id))
+        cur.execute("SELECT * FROM user_project WHERE user_id = %s AND project_id = %s", (user_id, project_id))
 
     result = cur.fetchone()
 
     if result:
-        return False
+        return None
     else:
-        return True
+        return result["permission"]
 
-def delete_permission(conn, user_id: str, project_id: int):
-    with conn.cursor() as cur:
-        cur.execute("DELETE FROM user_project WHERE user_id = %s AND project_id = %s;", (user_id, project_id))
+def delete_permission(conn, requester: str, user_id: str, project_id: int) -> None:
+    requester_permission = check_permission(conn, requester, project_id)
+
+    if requester_permission == "owner" or requester == user_id:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM user_project WHERE user_id = %s AND project_id = %s;", (user_id, project_id))
