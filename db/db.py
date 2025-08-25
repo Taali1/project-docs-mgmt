@@ -17,6 +17,8 @@ DB_CONFIG = {
 
 }
 
+# TODO: Refactor. Add `try` stetmant to functions
+
 @contextmanager
 def get_db():
     conn = psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
@@ -197,24 +199,26 @@ def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
         project_id (int, optional): If provided than queries only one project. Defaults to None.
 
     Raises:
-        HTTPException: If user has no permissions.
+        HTTPException 401: If user has no permissions.
+        HTTPException 500: If server error occures
 
     Returns:
         dict: Dictionarty with key `project_id` and values:
             (name, description, created_at, modified_at)
     """
-
-    if not accessible_projects:
-        return {}
-
     if project_id is not None:
-        if check_permission() is not None:
-            cur.execute("SELECT * FROM projects WHERE project_id = %s", (accessible_projects,))
-            return cur.fetchone()
+        if check_permission(conn, user_id, project_id) is not None:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM projects WHERE project_id = %s", (project_id,))
+                return cur.fetchone()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED)
+
 
     else:
         accessible_projects = select_projects_with_permissions(conn, user_id)
+
+        if not accessible_projects:
+            return {}
 
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM projects WHERE project_id IN %s", (tuple(accessible_projects),))
@@ -246,13 +250,12 @@ def check_permission(conn, user_id: str, project_id: int) -> str:
     """
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM user_project WHERE user_id = %s AND project_id = %s", (user_id, project_id))
-
-    result = cur.fetchone()
+        result = cur.fetchone()
 
     if result:
-        return None
-    else:
         return result["permission"]
+    else:
+        return None
 
 def delete_permission(conn, requester: str, user_id: str, project_id: int) -> None:
     """Deleting permission if user is an 'owner' or user himself is requesting for revoking his permissions
