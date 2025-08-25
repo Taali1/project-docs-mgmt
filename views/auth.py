@@ -20,10 +20,20 @@ security_schema = HTTPBasic()
 
 def auth_requierd(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
     """
+        Checks if user is logged in
     
-    
-    
-    
+    Args:
+        credentials (HTTPAuthorizationCredentials)
+            The parsed Authorization header (scheme + credentials). 
+
+    Returns:
+        dict: The decoded JWT payload (must contain a "sub" field).
+
+    Raises:
+        HTTPException: 
+            - 401 if the token is missing "sub"
+            - 401 if the token is expired
+            - 401 if the token is invalid
     
     """
     token = credentials.credentials
@@ -115,7 +125,6 @@ def post_login(credentials: HTTPBasicCredentials = Depends(security_schema)) -> 
 
     Raises:
         HTTPException 400: If 'login' or 'password' are not provided
-        HTTPException 409: If user is already logged in
     """
     if not credentials.username:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Login is required")
