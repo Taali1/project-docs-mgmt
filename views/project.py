@@ -1,18 +1,12 @@
 from fastapi import Request, HTTPException, status, Response, Depends
 
 from main import app
-from views.auth import auth_required, decode_token
+from views.auth import auth_requierd
 from db.db import *
 
-def get_current_user(request: Request):
-    token = request.session.get("token")
-    if not token:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not logged in")
-    return decode_token(token)
 
-@auth_required
 @app.post("/project")
-def post_project(project: Project, user_payload: dict = Depends(get_current_user)):
+def post_project(project: Project, user_payload: dict = Depends(auth_requierd)):
     user_id = user_payload["sub"]
 
     if not project.name:
@@ -27,9 +21,8 @@ def post_project(project: Project, user_payload: dict = Depends(get_current_user
 
 
 # TODO: GET /projects - Get all projects, accessible for a user. Returns list of projects full info(details + documents)
-@auth_required
 @app.get("/projects")
-def get_all_projects():
+def get_all_projects(user_payload: dict = Depends(auth_requierd)):
     with get_db() as conn:
         try:
             result = select_project_info_all(conn, "login").values()
@@ -38,9 +31,8 @@ def get_all_projects():
         return Response(result)
 
 # TODO: GET /project/<project_id>/info - Return project’s details, if user has access
-@auth_required
 @app.get("/project/{project_id}/info")
-def get_project_info(project_id: int):
+def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
     

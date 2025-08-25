@@ -1,44 +1,47 @@
-from fastapi import HTTPException, status, Request, Response
+from fastapi import HTTPException, status, Request, Response, Depends
+from fastapi.security import HTTPBasic, HTTPBearer, HTTPAuthorizationCredentials, HTTPBasicCredentials
 
-from typing import Any, Dict
-from functools import wraps
 import os
 from datetime import datetime, timedelta
 
 from main import app 
-from db.db import *
+from db.db import select_user, UserRegister, get_db, insert_user, TokenResponse
 
 import jwt
 
+# Getting environmental variables
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 TOKEN_EXPIRE_IN_MINUTES = int(os.getenv("TOKEN_EXPIRE_IN_MINUTES"))
-user_tokens = {}
 
-def decode_token(token: str) -> Dict[str, Any]:
+# Creating scheams for authentication
+auth_scheme = HTTPBearer()
+security_schema = HTTPBasic()
+
+def auth_requierd(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
     """
-    Decodes token for verifiction if user is logged in
-
-    Args:
-        token (str): JWT token from user session
-
-    Returns:
-        Dict[str, Any]: Dictionary contains decoded payload 
-
-    Rasises:
-        HTTPException: If the token is missing, expired, or invalid.
+    
+    
+    
+    
+    
     """
-
+    token = credentials.credentials
     try:
-        if not token:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token is required, please log in")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
+        user = payload.get("sub")
 
-        payload = jwt.decode(token, SECRET_KEY, ALGORITHM)
+        if not user:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token - missing subject")
+
         return payload
+
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Expired token, please log in again")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Expired token")
+
     except jwt.InvalidTokenError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+
 
 def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_IN_MINUTES)) -> str:
     """
@@ -58,31 +61,6 @@ def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_
     to_encode.update({"exp": expire_time})
     token = jwt.encode(to_encode, SECRET_KEY, ALGORITHM)
     return token
-
-def auth_required(func):
-    """
-    Checks authorization for user
-
-    Args:
-        request: (Request): FastAPI request object, used to access user's session data 
-
-    Raises:
-        HTTPException 401: If user is not logged in or token is invalid
-    """
-    @wraps(func)
-    def wrapper(*args, request: Request, **kwargs):
-        token = request.session.get("token")
-
-        if not token:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not logged in")
-        
-        try:
-            decode_token(token)
-        except HTTPException:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Provided token is invalid")
-
-        return func(*args, request=request, **kwargs)
-    return wrapper
 
 @app.post("/auth")
 def post_user(user: UserRegister) -> Response:
@@ -111,13 +89,20 @@ def post_user(user: UserRegister) -> Response:
 
     with get_db() as conn:
         try:
+            result = select_user(conn, user.user_id)
+            if result:
+                raise HTTPException(status.HTTP_409_CONFLICT, "User with the same username already in registered")
+        except Exception as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+
+        try:
             insert_user(conn, user)
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     return Response("Registerd succesfuly", status_code=201)
 
-@app.post("/login")
-def post_login(request: Request, user: User) -> Response:
+@app.post("/login", response_model=TokenResponse)
+def post_login(credentials: HTTPBasicCredentials = Depends(security_schema)) -> Response:
     """
     Logs in user and creates JWT session token
 
@@ -132,17 +117,27 @@ def post_login(request: Request, user: User) -> Response:
         HTTPException 400: If 'login' or 'password' are not provided
         HTTPException 409: If user is already logged in
     """
-    if not user.user_id:
+    if not credentials.username:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Login is required")
-    if not user.password:
+    if not credentials.password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is required")
-    if request.session.get("token"):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Already logged in")
 
-    token = create_token({"sub": user.user_id})
-    request.session["token"] = token
+    with get_db() as conn:
+        try:
+            result = select_user(conn)
+            if not result:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+            
+            if credentials.password != result["password"]:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
 
-    user_tokens[user.user_id] = token
+        except Exception as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
 
-    return Response("Logged successfuly", status_code=202)
+    token = create_token({"sub": credentials.username})
+
+    return {
+        "token": token,
+        "expires_in_minutes": TOKEN_EXPIRE_IN_MINUTES
+    }
         

@@ -40,6 +40,11 @@ class Project(BaseModel):
     created_at: datetime | None = None
     modified_at: datetime  | None = None
 
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
 @contextmanager
 def get_db():
     conn = psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
@@ -62,7 +67,7 @@ def select_user(conn, user_id: str) -> tuple:
         cur.execute("SELECT user_id, password FROM users WHERE user_id = %s;", (user_id))
         return cur.fetchall()
 
-def select_user(conn, user_id: str, user: User) -> None:
+def update_user(conn, user_id: str, user: User) -> None:
     with conn.cursor() as cur:
         cur.execute("UPDATE users SET password = %s WHERE user_id = %s;", (user.password, user_id))
         return 0
@@ -139,8 +144,6 @@ def select_project_info(conn, project_id: int, user_id: str) -> dict:
         
         result = cur.fetchall()
         return result
-
-
 
 def select_project_info_all(conn, user_id: str) -> dict:
     accessible_projects = select_projects_with_permissions(conn, user_id)
