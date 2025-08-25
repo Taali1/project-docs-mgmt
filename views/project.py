@@ -20,12 +20,12 @@ def post_project(project: Project, user_payload: dict = Depends(auth_requierd)):
     return Response("Project added succesfuly", status_code=201)
 
 
-# TODO: GET /projects - Get all projects, accessible for a user. Returns list of projects full info(details + documents)
+# TODO: Add documents in Response
 @app.get("/projects")
 def get_all_projects(user_payload: dict = Depends(auth_requierd)):
     with get_db() as conn:
         try:
-            result = select_project_info_all(conn, "login").values()
+            result = select_project_info(conn, "login")
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
         return Response(result)
