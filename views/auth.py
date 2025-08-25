@@ -109,7 +109,7 @@ def post_user(user: UserRegister) -> Response:
             insert_user(conn, user)
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    return Response("Registerd succesfuly", status_code=201)
+    return Response("Registerd succesfuly", status.HTTP_201_CREATED)
 
 @app.post("/login", response_model=TokenResponse)
 def post_login(credentials: HTTPBasicCredentials = Depends(security_schema)) -> Response:
