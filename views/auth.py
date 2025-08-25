@@ -85,7 +85,7 @@ def auth_required(func):
     return wrapper
 
 @app.post("/auth")
-def post_user(user: User, repeat_password: str) -> Response:
+def post_user(user: UserRegister) -> Response:
     """
     Registers user to data base
     
@@ -100,13 +100,13 @@ def post_user(user: User, repeat_password: str) -> Response:
         HTTPException 400: If 'login', 'password' or 'repeat_password' is not provided or 'password' and 'repeat_password' are not the same
         HTTPException 500: If theres a database error
     """
-    if not user.login:
+    if not user.user_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Login is required")
     if not user.password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is required")
-    if not repeat_password:
+    if not user.repeat_password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Repeat password is required")
-    if user.password != repeat_password:
+    if user.password != user.repeat_password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Password and Repeat password are not the same")
 
     with get_db() as conn:
@@ -123,7 +123,7 @@ def post_login(request: Request, user: User) -> Response:
 
     Args:
         request: (Request): FastAPI request object, used to access user's session data
-        user (User): Pydantic model, contains 'login' (str) and 'password' (str)
+        user (User): Pydantic model, contains 'user_id' (str) and 'password' (str)
 
     Returns:
         Response: FastAPI Response object with 202 status (Accepted)
@@ -132,17 +132,17 @@ def post_login(request: Request, user: User) -> Response:
         HTTPException 400: If 'login' or 'password' are not provided
         HTTPException 409: If user is already logged in
     """
-    if not user.login:
+    if not user.user_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Login is required")
     if not user.password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is required")
     if request.session.get("token"):
         raise HTTPException(status.HTTP_409_CONFLICT, "Already logged in")
 
-    token = create_token({"sub": user.login})
+    token = create_token({"sub": user.user_id})
     request.session["token"] = token
 
-    user_tokens[user.login] = token
+    user_tokens[user.user_id] = token
 
     return Response("Logged successfuly", status_code=202)
         

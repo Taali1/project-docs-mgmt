@@ -2,9 +2,7 @@ from fastapi import Request, HTTPException, status, Response, Depends
 
 from main import app
 from views.auth import auth_required, decode_token
-from db.db import get_db, Project, insert_project
-
-# TODO: POST /projects - Create project from details (name, description). Automatically gives access to created project to user, making him the owner (admin of the project)
+from db.db import *
 
 def get_current_user(request: Request):
     token = request.session.get("token")
@@ -15,22 +13,42 @@ def get_current_user(request: Request):
 @auth_required
 @app.post("/project")
 def post_project(project: Project, user_payload: dict = Depends(get_current_user)):
-    login = user_payload["sub"]
+    user_id = user_payload["sub"]
 
     if not project.name:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project name is required")
 
     with get_db() as conn:
         try:
-            insert_project(conn, login, project)
+            insert_project(conn, user_id, project)
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     return Response("Project added succesfuly", status_code=201)
 
 
 # TODO: GET /projects - Get all projects, accessible for a user. Returns list of projects full info(details + documents)
+@auth_required
+@app.get("/projects")
+def get_all_projects():
+    with get_db() as conn:
+        try:
+            result = select_project_info_all(conn, "login").values()
+        except Exception as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+        return Response(result)
 
 # TODO: GET /project/<project_id>/info - Return project’s details, if user has access
+@auth_required
+@app.get("/project/{project_id}/info")
+def get_project_info(project_id: int):
+    if not project_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
+    
+    with get_db() as conn:
+        try:
+            pass
+        except Exception as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
 
 # TODO: PUT /project/<project_id>/info - Update projects details - name, description. Returns the updated project’s info
 
@@ -40,4 +58,4 @@ def post_project(project: Project, user_payload: dict = Depends(get_current_user
 
 # TODO: POST /project/<project_id>/documents - Upload document/documents for a specific project
 
-# TODO: POST /project/<project_id>/invite?user=<login> - Grant access to the project for a specific user. If the request is not coming from the owner of the project, results in error. Granting access gives participant permissions to receiving user
+# TODO: POST /project/<project_id>/invite?user=<user_id> - Grant access to the project for a specific user. If the request is not coming from the owner of the project, results in error. Granting access gives participant permissions to receiving user

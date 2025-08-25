@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from datetime import datetime
 from enum import Enum
 
+from fastapi import HTTPException, status
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
@@ -16,8 +18,13 @@ DB_CONFIG = {
 
 }
 
+class UserRegister(BaseModel):
+    user_id: str
+    password: str
+    repeat_password: str
+
 class User(BaseModel):
-    login: str
+    user_id: str
     password: str | None = None
 class Permission(str, Enum):
     owner: str = "owner"
@@ -47,40 +54,40 @@ def get_db():
 
 def insert_user(conn, user: User) -> None:
     with conn.cursor() as cur:
-        cur.execute("INSERT INTO users (login, password) VALUES (%s, %s);", (user.login, user.password))
+        cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s);", (user.user_id, user.password))
         return 0
 
-def select_user(conn, login: str) -> tuple:
+def select_user(conn, user_id: str) -> tuple:
     with conn.cursor() as cur:
-        cur.execute("SELECT login, password FROM users WHERE login = %s;", (login))
+        cur.execute("SELECT user_id, password FROM users WHERE user_id = %s;", (user_id))
         return cur.fetchall()
 
-def update_user(conn, login: str, user: User) -> None:
+def select_user(conn, user_id: str, user: User) -> None:
     with conn.cursor() as cur:
-        cur.execute("UPDATE users SET password = %s WHERE login = %s;", (user.password, login))
+        cur.execute("UPDATE users SET password = %s WHERE user_id = %s;", (user.password, user_id))
         return 0
 
-def insert_project(conn, login: str, project: Project) -> None:
+def insert_project(conn, user_id: str, project: Project) -> None:
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with conn.cursor() as cur:
         if project.description:
             cur.execute("""
-                INSERT INTO projects (title, description, created_at)
-                VALUES (%s, %s,%s) 
+                INSERT INTO projects (name, description, created_at, modified_at)
+                VALUES (%s, %s, %s, %s) 
                 RETURNING project_id;
                 """,
-                (project.name, project.description, current_time))
+                (project.name, project.description, current_time, current_time))
         else:
             cur.execute("""
-                INSERT INTO projects (title, created_at)
-                VALUES (%s, %s) 
+                INSERT INTO projects (name, created_at, modified_at)
+                VALUES (%s, %s, %s) 
                 RETURNING project_id;
                 """,
-                (project.name, current_time))
+                (project.name, current_time, current_time))
 
         project_id = cur.fetchone()["project_id"]
         
-        cur.execute("INSERT INTO user_project (login, project_id, permission) VALUES (%s, %s, %s);", (login, project_id, Permission.owner.value))
+        cur.execute("INSERT INTO user_project (user_id, project_id, permission) VALUES (%s, %s, %s);", (user_id, project_id, Permission.owner.value))
 
 def update_project(conn, project: Project):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -89,7 +96,7 @@ def update_project(conn, project: Project):
         values = []
 
         if project.name:
-            fields.append("title = %s")
+            fields.append("name = %s")
             values.append(project.name)
 
         if project.description:
@@ -109,7 +116,60 @@ def update_project(conn, project: Project):
 
         cur.execute(query, values)
 
-def delete_permission(conn, login: str, project_id: int):
+def select_projects_with_permissions(conn, user_id):
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM user_project WHERE user_id = %s AND project_id = %s;", (login, project_id))
-        return 0
+        cur.execute("""
+            SELECT project_id
+            FROM user_project
+            WHERE user_id = %s
+            """, 
+            (user_id,))
+        result = cur.fetchall()
+    return [row["project_id"] for row in result]
+
+def select_project_info(conn, project_id: int, user_id: str) -> dict:
+    
+    accessible_projects = select_projects_with_permissions(conn, user_id)
+
+    if not accessible_projects:
+        return {}
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM projects WHERE project_id IN %s", (tuple(accessible_projects),))
+        
+        result = cur.fetchall()
+        return result
+
+
+
+def select_project_info_all(conn, user_id: str) -> dict:
+    accessible_projects = select_projects_with_permissions(conn, user_id)
+
+    if not accessible_projects:
+        return {}
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM projects WHERE project_id IN %s", (tuple(accessible_projects),))
+        
+        rows = cur.fetchall()
+        result = {}
+
+        for row in rows:
+            result[row["project_id"]] = {"project_id": row["project_id"], "name": row["name"], "description": row["description"], "created_at": row["created_at"], "modified_at": row["modified_at"]}
+
+        return result
+
+def check_permission(conn, user_id: str, project_id: int) -> bool:
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM user_project WHERE user_id = %s AND project_id = %s", (user_id, project_id))
+
+    result = cur.fetchone()
+
+    if result:
+        return False
+    else:
+        return True
+
+def delete_permission(conn, user_id: str, project_id: int):
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM user_project WHERE user_id = %s AND project_id = %s;", (user_id, project_id))
