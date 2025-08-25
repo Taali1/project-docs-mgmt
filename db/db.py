@@ -1,8 +1,5 @@
-from pydantic import BaseModel
 from datetime import datetime
-from enum import Enum
 
-from fastapi import HTTPException, status
 from db.models import *
 
 import psycopg2
@@ -36,17 +33,17 @@ def insert_user(conn, user: User) -> None:
         cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s);", (user.user_id, user.password))
         return 0
 
-def select_user(conn, user_id: str) -> tuple:
+def select_user(conn, user_id: str) -> dict:
     with conn.cursor() as cur:
-        cur.execute("SELECT user_id, password FROM users WHERE user_id = %s;", (user_id))
-        return cur.fetchall()
+        cur.execute("SELECT user_id, password FROM users WHERE user_id = %s;", (user_id,))
+        return cur.fetchone()
 
 def update_user(conn, user_id: str, user: User) -> None:
     with conn.cursor() as cur:
         cur.execute("UPDATE users SET password = %s WHERE user_id = %s;", (user.password, user_id))
         return 0
 
-def insert_project(conn, user_id: str, project: Project) -> None:
+def insert_project(conn, user_id: str, project: Project) -> int:
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with conn.cursor() as cur:
         if project.description:
@@ -66,7 +63,14 @@ def insert_project(conn, user_id: str, project: Project) -> None:
 
         project_id = cur.fetchone()["project_id"]
         
-        cur.execute("INSERT INTO user_project (user_id, project_id, permission) VALUES (%s, %s, %s);", (user_id, project_id, Permission.owner.value))
+        cur.execute("""
+        INSERT INTO user_project (user_id, project_id, permission) 
+        VALUES (%s, %s, %s);
+        """, 
+        (user_id, project_id, Permission.owner.value))
+
+        return project_id 
+
 
 def update_project(conn, project: Project):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
