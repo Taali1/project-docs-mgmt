@@ -17,8 +17,13 @@ DB_CONFIG = {
     "database": os.getenv("database"),
     "user": os.getenv("user"),
     "password": os.getenv("password")
-
 }
+
+test_project = Project(name="Monster INC.", description="Cool movie")
+test_user = User(user_id="mike", password="wazowski")
+test_user_update_to = User(user_id="mike", password="sullivan")
+test_project = Project(name="Monster INC.", description="Cool movie")
+test_project_update_to = Project(name="Cars", description="Nice movie")
 
 @pytest.fixture()
 def db_connection():
@@ -31,7 +36,6 @@ def db_connection():
         conn.close()
 
 def test_insert_user(db_connection):
-    test_user = User(user_id="mike", password="wazowski")
     
     insert_user(db_connection, test_user)
     
@@ -42,19 +46,16 @@ def test_insert_user(db_connection):
         assert user_in_db["user_id"] == "mike"
 
 def test_select_user(db_connection):
-    test_user = User(user_id="mike", password="wazowski")
 
     insert_user(db_connection, test_user)
 
     result = select_user(db_connection, test_user.user_id)
 
-    assert result != None
+    assert result is not None
     assert result["user_id"] == "mike"
     assert result["password"] == "wazowski"
 
 def test_update_user(db_connection):
-    test_user = User(user_id="mike", password="wazowski")
-    test_user_update_to = User(user_id="mike", password="sullivan")
 
     insert_user(db_connection, test_user)
 
@@ -64,8 +65,6 @@ def test_update_user(db_connection):
     assert result["password"] == test_user_update_to.password
 
 def test_insert_project(db_connection):
-    test_project = Project(name="Monster INC.", description="Cool movie")
-    test_user = User(user_id="mike", password="wazowski")
 
     insert_user(db_connection, test_user)
 
@@ -79,9 +78,6 @@ def test_insert_project(db_connection):
         assert result["description"] == "Cool movie"
 
 def test_project_update(db_connection):
-    test_project = Project(name="Monster INC.", description="Cool movie")
-    test_project_update_to = Project(name="Cars", description="Nice movie")
-    test_user = User(user_id="mike", password="wazowski")
 
     insert_user(db_connection, test_user)
 
@@ -96,5 +92,17 @@ def test_project_update(db_connection):
         assert result["name"] == "Cars"
         assert result["description"] == "Nice movie"
 
+def test_select_projects_with_permissions(db_connection):
 
+    insert_user(db_connection, test_user)
 
+    project_id = insert_project(db_connection, test_user.user_id, test_project)
+
+    result = select_projects_with_permissions(db_connection, test_user.user_id)
+
+    assert result is not None
+    assert project_id in result
+
+def test_select_project_info(db_connection):
+    
+    select_project_info(db_connection, user)
