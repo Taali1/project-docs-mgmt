@@ -30,21 +30,53 @@ def get_db():
         conn.close()
 
 def insert_user(conn, user: User) -> None:
+    """Inserting a user to database
+
+    Args:
+        conn (psycopg2.connect): Connection to databases.
+        user (User): pydantic model, contains `user_id: str` and `password: str` values
+    """
     with conn.cursor() as cur:
         cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s);", (user.user_id, user.password))
-        return 0
 
 def select_user(conn, user_id: str) -> dict:
+    """
+    Queries for user data.
+
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        user_id (str): ID of the user whose data is queried
+
+    Returns:
+        dict: Dictionary with values `user_id` and `password`
+    """
     with conn.cursor() as cur:
         cur.execute("SELECT user_id, password FROM users WHERE user_id = %s;", (user_id,))
         return cur.fetchone()
 
 def update_user(conn, user_id: str, user: User) -> None:
+    """Updating users data
+
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        user_id (str): ID of a user whose data is updated
+        user (User): pydantic model, contains `user_id: str` and `password: str`
+    """
     with conn.cursor() as cur:
         cur.execute("UPDATE users SET password = %s WHERE user_id = %s;", (user.password, user_id))
-        return 0
 
 def insert_project(conn, user_id: str, project: Project) -> int:
+    """Creates a project and user - project relation with user as an `owner`.
+    
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        user (str): ID of as user who is adding a project.
+    
+    Returns:
+        int: ID of a project that has been added.
+    
+    """
+
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with conn.cursor() as cur:
         if project.description:
@@ -74,6 +106,19 @@ def insert_project(conn, user_id: str, project: Project) -> int:
 
 
 def update_project(conn, project: Project):
+    """Updates a project with provided values.
+    Automatically changes `modified_at` to current time.
+
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        project (Project): pydantic model, contains 
+            `poroject_id: int` (optional), 
+            `name: str`,
+            `description: str` (optional),
+            `created_at: datetime` (optional),
+            `modified_at: datetime` (optional)
+
+    """
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with conn.cursor() as cur:
         fields = []
@@ -101,6 +146,17 @@ def update_project(conn, project: Project):
         cur.execute(query, values)
 
 def delete_project(conn, user_id: str, project_id: int):
+    """Deletes a project if users have such permissions.
+
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        user_id (str): ID of a user whose permissions are checked
+        project_id (int): ID of a project for deletion
+
+    Raises:
+        HTTPException 401: If user is not a "owner" and have no premission for deleting
+        HTTPException 500: If server error occures
+    """
     try:
         if check_permission(conn, user_id, project_id) == "owner":
             with conn.cursor() as cur:
@@ -111,6 +167,15 @@ def delete_project(conn, user_id: str, project_id: int):
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
 
 def select_projects_with_permissions(conn, user_id):
+    """Returns all projects that user have permission to.
+    
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        user_id (int): ID of a user whose projects are queried.
+
+    Returns:
+        tuple: IDs of a project that user have access to.
+    """
     with conn.cursor() as cur:
         cur.execute("""
             SELECT project_id
@@ -122,9 +187,21 @@ def select_projects_with_permissions(conn, user_id):
     return (row["project_id"] for row in result)
 
 def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
-    """
+    """Queries database for project's info that user has access to.
+    If project_id is provided than queries only for singular requested project.
+    If project_id is NOT provided than returns all accessible projects.
 
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        user_id (str): ID of a user whose permissions are checked.
+        project_id (int, optional): If provided than queries only one project. Defaults to None.
 
+    Raises:
+        HTTPException: If user has no permissions.
+
+    Returns:
+        dict: Dictionarty with key `project_id` and values:
+            (name, description, created_at, modified_at)
     """
 
     if not accessible_projects:
@@ -147,7 +224,6 @@ def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
 
             for row in rows:
                 result[row["project_id"]] = {
-                    "project_id": row["project_id"], 
                     "name": row["name"], 
                     "description": row["description"], 
                     "created_at": row["created_at"], 
@@ -157,6 +233,17 @@ def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
             return result
 
 def check_permission(conn, user_id: str, project_id: int) -> str:
+    """Checks if user have permissions to project and of which type.
+
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        user_id (str): ID of a user whose permission is checked.
+        project_id (int): ID of a project where permission is checked.
+
+    Returns:
+        str: If user have a permission to project and of what type (here "participant" or "owner").
+        None: If user doesn't have any permissions to project.
+    """
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM user_project WHERE user_id = %s AND project_id = %s", (user_id, project_id))
 
@@ -168,7 +255,22 @@ def check_permission(conn, user_id: str, project_id: int) -> str:
         return result["permission"]
 
 def delete_permission(conn, requester: str, user_id: str, project_id: int) -> None:
+    """Deleting permission if user is an 'owner' or user himself is requesting for revoking his permissions
+    
+
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        requester (str): ID of a user who is requesting for deletion.
+        user_id (str): ID of a user whose permission have to be deleted.
+        project_id (int): ID of a project to which user have to lose permissions.
+
+    Raises:
+        HTTPException 403: If 'owner' of a project wants to revoke his own permissions.
+    """
     requester_permission = check_permission(conn, requester, project_id)
+
+    if requester_permission == "owner" and requester == user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Owner can't delet his own permission")
 
     if requester_permission == "owner" or requester == user_id:
         with conn.cursor() as cur:
