@@ -19,12 +19,10 @@ auth_scheme = HTTPBearer()
 security_schema = HTTPBasic()
 
 def auth_requierd(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-    """
-        Checks if user is logged in
+    """Checks if user is logged in
     
     Args:
-        credentials (HTTPAuthorizationCredentials)
-            The parsed Authorization header (scheme + credentials). 
+        credentials (HTTPAuthorizationCredentials): The parsed Authorization header (scheme + credentials). 
 
     Returns:
         dict: The decoded JWT payload (must contain a "sub" field).
@@ -54,8 +52,7 @@ def auth_requierd(credentials: HTTPAuthorizationCredentials = Depends(auth_schem
 
 
 def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_IN_MINUTES)) -> str:
-    """
-    Creates token for user session from it's username and encodes it by using choosen algorithm and secret key using JWT
+    """Creates token for user session from it's username and encodes it by using choosen algorithm and secret key using JWT
 
     Args:
         data (dict): Dictionary with  username as "sub" key
@@ -74,8 +71,7 @@ def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_
 
 @app.post("/auth")
 def post_user(user: UserRegister) -> Response:
-    """
-    Registers user to data base
+    """Registers user to data base
     
     Args:
         user (User): Pydantic model, contains 'login' (str) and 'password' (str)
