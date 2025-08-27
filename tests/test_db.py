@@ -14,12 +14,20 @@ import os
 
 load_dotenv()
 
-DB_CONFIG = {
-    "host": os.getenv("host"),
-    "database": os.getenv("database"),
-    "user": os.getenv("user"),
-    "password": os.getenv("password")
+REQUIRED_ENV_VARIABLES = {
+    "TEST_DB_HOST": "host",
+    "TEST_DB_NAME": "database",
+    "TEST_DB_USER": "user",
+    "TEST_DB_PASS": "password",
 }
+
+DB_CONFIG = {}
+
+for env_var, config_key in REQUIRED_ENV_VARIABLES.items():
+    value = os.getenv(env_var)
+    if not value:
+        raise ValueError(f"Environment variable '{env_var}' is not set.")
+    DB_CONFIG[config_key] = value
 
 test_project = Project(name="Monster INC.", description="Cool movie")
 test_user = User(user_id="mike", password="wazowski")
@@ -31,9 +39,11 @@ test_project_2 = Project(name="Cars", description="Nice movie")
 def db_connection():
     conn = psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
     try:
-        conn.autocommit = False
         yield conn
+        conn.commit()
+    except Exception:
         conn.rollback()
+        raise
     finally:
         conn.close()
 

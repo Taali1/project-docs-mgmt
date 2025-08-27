@@ -9,13 +9,20 @@ from contextlib import contextmanager
 
 import os
 
-DB_CONFIG = {
-    "host": os.getenv("host"),
-    "database": os.getenv("database"),
-    "user": os.getenv("user"),
-    "password": os.getenv("password")
-
+REQUIRED_ENV_VARIABLES = {
+    "DB_HOST": "host",
+    "DB_NAME": "database",
+    "DB_USER": "user",
+    "DB_PASS": "password",
 }
+
+DB_CONFIG = {}
+
+for env_var, config_key in REQUIRED_ENV_VARIABLES.items():
+    value = os.getenv(env_var)
+    if not value:
+        raise ValueError(f"Environment variable '{env_var}' is not set.")
+    DB_CONFIG[config_key] = value
 
 # TODO: Refactor. Add `try` stetmant to functions
 
