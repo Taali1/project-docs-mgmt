@@ -91,7 +91,7 @@ def post_user(user: UserRegister, db = Depends(get_db)) -> Response:
     if not user.repeat_password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Repeat password is required")
     if user.password != user.repeat_password:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Password and Repeat password are not the same")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password and Repeat password are not the same")
     
 
     with db as conn:
