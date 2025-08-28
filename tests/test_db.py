@@ -8,45 +8,6 @@ from tests.test_data import users_test_data, projects_test_data, user_project_te
 from db.db import *
 del get_db, DB_CONFIG
 
-
-from dotenv import load_dotenv
-import os
-
-
-load_dotenv()
-
-REQUIRED_ENV_VARIABLES = {
-"TEST_DB_HOST": "host",
-"TEST_DB_NAME": "database",
-"TEST_DB_USER": "user",
-"TEST_DB_PASSWORD": "password"
-}
-
-DB_CONFIG = {}
-
-for env_var, config_key in REQUIRED_ENV_VARIABLES.items():
-    value = os.getenv(env_var)
-    if not value:
-        raise ValueError(f"Environment variable '{env_var}' is not set.")
-    DB_CONFIG[config_key] = value
-
-@pytest.fixture(autouse=True)
-def db_connection():
-    conn = psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
-    try:
-        yield conn        
-    finally:
-        cleanup_conn = psycopg2.connect(**DB_CONFIG)
-        try:
-            with cleanup_conn, cleanup_conn.cursor() as cur:
-                cur.execute("DELETE FROM user_project;")
-                cur.execute("DELETE FROM users;")
-                cur.execute("DELETE FROM projects;")
-        finally:
-            cleanup_conn.close()
-            conn.close()
-
-
 def create_user_in_db(cur, user_id, password):
     user = User(user_id=user_id, password=password)
     cur.execute("INSERT INTO users VALUES (%s, %s);", (user.user_id, user.password))
