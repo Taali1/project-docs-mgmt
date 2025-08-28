@@ -4,13 +4,18 @@ users_test_data = [
     ("mike", "wazowski"),
     ("james", "sullivan")
 ]
+"""
+    user_id (user), password (user)
+"""
 
-# name, description
 projects_test_data = [
     ("Monster INC.", "Cool movie"),
     ("Cars", "Nice movie")
 ]
+"""
+    name (project), description (project)
 
+"""
 
 user_project_test_data = [
     (
@@ -44,6 +49,9 @@ user_project_test_data = [
     )
 ]
 """
-first dict: user_id (users), password (users), name (projects), description (users), expected (owner)
-second dict: user_id (users), password (users), expected (participant)
+    #### first dict: 
+    - user_id (users), password (users), name (projects), description (users), expected (owner)
+    
+    #### second dict: 
+    - user_id (users), password (users), expected (participant)
 """

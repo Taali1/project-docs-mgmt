@@ -278,7 +278,8 @@ def delete_permission(conn, requester_id: str, user_id: str, project_id: int) ->
         project_id (int): ID of a project to which user have to lose permissions.
 
     Raises:
-        HTTPException 403: If 'owner' of a project wants to revoke his own permissions.
+        HTTPException 403: If 'owner' of a project wants to revoke his own permissions 
+        or user who isn't an owner wants to revoke someone's pemissions
     """
     requester_permission = check_permission(conn, requester_id, project_id)
 
@@ -292,11 +293,27 @@ def delete_permission(conn, requester_id: str, user_id: str, project_id: int) ->
     else:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "You don't have permission")
 
-def delete_user(conn, user_id: str):
+def delete_user(conn, user_id: str) -> None:
+    """Deleting user
+
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        user_id (str): ID of user to be deleted.
+    """
     with conn.cursor() as cur:
         cur.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
 
-def delete_project(conn, requester_id: str, project_id: int):
+def delete_project(conn, requester_id: str, project_id: int) -> None:
+    """Deleting project, if requester have permissions to do so
+
+    Args:
+        conn (psycopg2.connect): Connection to database.
+        requester_id (str): ID of a user who is requesting for deletion.
+        project_id (int): ID of a project for deletion.
+
+    Raises:
+        HTTPException 403: If user doesn't have permission for project deleting, only owner can do so.
+    """
     requester_permission = check_permission(conn, requester_id, project_id)
 
     if requester_permission == "owner":
@@ -304,3 +321,7 @@ def delete_project(conn, requester_id: str, project_id: int):
             cur.execute("DELETE FROM projects WHERE project_id = %s", (project_id,))
     else:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "You don't have permission")
+
+
+
+
