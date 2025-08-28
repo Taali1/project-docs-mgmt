@@ -11,13 +11,16 @@ class UserRegister(BaseModel):
 class User(BaseModel):
     user_id: str
     password: str | None = None
+
 class Permission(str, Enum):
     owner: str = "owner"
-    participant: str = "participant"
+    participant: str = "participant" 
+
 class User_Project(BaseModel):
     user_id: str
     project_id: int
     permission: Permission
+    
 class Project(BaseModel):
     project_id: int | None = None
     name: str
