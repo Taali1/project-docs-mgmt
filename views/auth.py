@@ -70,7 +70,7 @@ def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_
     return token
 
 @app.post("/auth")
-def post_user(user: UserRegister) -> Response:
+def post_user(user: UserRegister, db = Depends(get_db)) -> Response:
     """Registers user to data base
     
     Args:
@@ -92,8 +92,9 @@ def post_user(user: UserRegister) -> Response:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Repeat password is required")
     if user.password != user.repeat_password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Password and Repeat password are not the same")
+    
 
-    with get_db() as conn:
+    with db as conn:
         try:
             result = select_user(conn, user.user_id)
             if result:
@@ -108,7 +109,7 @@ def post_user(user: UserRegister) -> Response:
     return Response("Registerd succesfuly", status.HTTP_201_CREATED)
 
 @app.post("/login", response_model=TokenResponse)
-def post_login(credentials: HTTPBasicCredentials = Depends(security_schema)) -> Response:
+def post_login(credentials: HTTPBasicCredentials = Depends(security_schema), db = Depends(get_db)) -> Response:
     """
     Logs in user and creates JWT session token
 
@@ -127,7 +128,7 @@ def post_login(credentials: HTTPBasicCredentials = Depends(security_schema)) -> 
     if not credentials.password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is required")
 
-    with get_db() as conn:
+    with db as conn:
         try:
             result = select_user(conn)
             if not result:
