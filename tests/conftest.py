@@ -26,7 +26,7 @@ for env_var, config_key in REQUIRED_ENV_VARIABLES.items():
         raise ValueError(f"Environment variable '{env_var}' is not set.")
     DB_CONFIG[config_key] = value
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True, scope="function")
 def db_connection():
     conn = psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
     try:
@@ -42,7 +42,7 @@ def db_connection():
             cleanup_conn.close()
             conn.close()
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def client(db_connection):
     def override_get_db():
         yield db_connection
