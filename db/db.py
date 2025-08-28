@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Response
 
 from db.models import *
 
@@ -7,13 +7,16 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import contextmanager
 
+from dotenv import load_dotenv
 import os
+
+load_dotenv()
 
 REQUIRED_ENV_VARIABLES = {
     "DB_HOST": "host",
     "DB_NAME": "database",
     "DB_USER": "user",
-    "DB_PASS": "password",
+    "DB_PASSWORD": "password",
 }
 
 DB_CONFIG = {}
@@ -193,7 +196,7 @@ def select_projects_with_permissions(conn, user_id):
             """, 
             (user_id,))
         result = cur.fetchall()
-    return (row["project_id"] for row in result)
+    return [row["project_id"] for row in result]
 
 def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
     """Queries database for project's info that user has access to.
@@ -264,7 +267,7 @@ def check_permission(conn, user_id: str, project_id: int) -> str:
     else:
         return None
 
-def delete_permission(conn, requester: str, user_id: str, project_id: int) -> None:
+def delete_permission(conn, requester_id: str, user_id: str, project_id: int) -> None:
     """Deleting permission if user is an 'owner' or user himself is requesting for revoking his permissions
     
 
@@ -277,11 +280,27 @@ def delete_permission(conn, requester: str, user_id: str, project_id: int) -> No
     Raises:
         HTTPException 403: If 'owner' of a project wants to revoke his own permissions.
     """
-    requester_permission = check_permission(conn, requester, project_id)
+    requester_permission = check_permission(conn, requester_id, project_id)
 
-    if requester_permission == "owner" and requester == user_id:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Owner can't delet his own permission")
+    if requester_permission == "owner" and requester_id == user_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Owner can't delete his own permission")
 
-    if requester_permission == "owner" or requester == user_id:
+    if requester_permission == "owner" or requester_id == user_id:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM user_project WHERE user_id = %s AND project_id = %s;", (user_id, project_id))
+            return True
+    else:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You don't have permission")
+
+def delete_user(conn, user_id: str):
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
+
+def delete_project(conn, requester_id: str, project_id: int):
+    requester_permission = check_permission(conn, requester_id, project_id)
+
+    if requester_permission == "owner":
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM projects WHERE project_id = %s", (project_id,))
+    else:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "You don't have permission")
