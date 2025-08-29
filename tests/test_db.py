@@ -45,8 +45,8 @@ def test_select_user(db_connection, user_id, password):
     result = select_user(db_connection, test_user.user_id)
 
     assert result is not None
-    assert result["user_id"] == user_id
-    assert result["password"] == password
+    assert result.user_id == user_id
+    assert result.password == password
 
 @pytest.mark.parametrize("user_id, password", users_test_data)
 def test_update_user(db_connection, user_id, password):
@@ -57,8 +57,10 @@ def test_update_user(db_connection, user_id, password):
 
     update_user(db_connection, test_user.user_id, test_user)
 
-    result = select_user(db_connection, test_user.user_id)
-    assert result["password"] == password + "_changed"
+    with db_connection.cursor() as cur:
+        cur.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+        users_new_password = cur.fetchone()["password"]
+        assert users_new_password == password + "_changed"
 
 @pytest.mark.parametrize("name, description", projects_test_data)
 def test_insert_project(db_connection, name, description):
