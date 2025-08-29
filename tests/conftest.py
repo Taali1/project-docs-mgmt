@@ -12,12 +12,21 @@ import os
 
 load_dotenv()
 
+@pytest.fixture(scope="session")
+def secrets():
+    return {
+        "SECRET_KEY": os.getenv("SECRET_KEY"),
+        "ALGORITHM": os.getenv("ALGORITHM"),
+        "TOKEN_EXPIRE_IN_MINUTES":int(os.getenv("TOKEN_EXPIRE_IN_MINUTES"))
+    }
+
 REQUIRED_ENV_VARIABLES = {
 "TEST_DB_HOST": "host",
 "TEST_DB_NAME": "database",
 "TEST_DB_USER": "user",
 "TEST_DB_PASSWORD": "password"
 }
+
 DB_CONFIG = {}
 
 for env_var, config_key in REQUIRED_ENV_VARIABLES.items():
