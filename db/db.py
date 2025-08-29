@@ -51,7 +51,7 @@ def insert_user(conn, user: User) -> None:
     with conn.cursor() as cur:
         cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s);", (user.user_id, user.password))
 
-def select_user(conn, user_id: str) -> dict:
+def select_user(conn, user_id: str) -> User:
     """
     Queries for user data.
 
@@ -64,7 +64,11 @@ def select_user(conn, user_id: str) -> dict:
     """
     with conn.cursor() as cur:
         cur.execute("SELECT user_id, password FROM users WHERE user_id = %s;", (user_id,))
-        return cur.fetchone()
+        user = cur.fetchone()
+        if user is not None:
+            return User(user_id=user["user_id"], password=user["password"])
+        else: 
+            return None
 
 def update_user(conn, user_id: str, user: User) -> None:
     """Updating users data
