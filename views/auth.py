@@ -1,11 +1,12 @@
-from fastapi import HTTPException, status, Request, Response, Depends
-from fastapi.security import HTTPBasic, HTTPBearer, HTTPAuthorizationCredentials, HTTPBasicCredentials
+from fastapi import HTTPException, status, Response, Depends
+from fastapi.security import HTTPBasic, HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse
 
 import os
 from datetime import datetime, timedelta
 
 from main import app 
-from db.db import select_user, UserRegister, get_db, insert_user, TokenResponse
+from db.db import select_user, UserRegister, get_db, insert_user, TokenResponse, User, LoginRequest
 
 import jwt
 
@@ -109,7 +110,7 @@ def post_user(user: UserRegister, db = Depends(get_db)) -> Response:
     return Response("Registerd succesfuly", status.HTTP_201_CREATED)
 
 @app.post("/login", response_model=TokenResponse)
-def post_login(credentials: HTTPBasicCredentials = Depends(security_schema), db = Depends(get_db)) -> Response:
+def post_login(credentials: LoginRequest, db = Depends(get_db)) -> Response:
     """
     Logs in user and creates JWT session token
 
@@ -123,27 +124,26 @@ def post_login(credentials: HTTPBasicCredentials = Depends(security_schema), db 
     Raises:
         HTTPException 400: If 'login' or 'password' are not provided
     """
-    if not credentials.username:
+    if not credentials.user_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Login is required")
     if not credentials.password:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Password is required")
 
     with db as conn:
-        try:
-            result = select_user(conn)
-            if not result:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
-            
-            if credentials.password != result["password"]:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+        user = select_user(conn, credentials.user_id)
+        
+        if user is None:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+        
+        if credentials.password != user.password:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
 
-        except Exception as e:
-            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+    token = create_token({"sub": credentials.user_id})
 
-    token = create_token({"sub": credentials.username})
-
-    return {
+    return JSONResponse({
         "token": token,
         "expires_in_minutes": TOKEN_EXPIRE_IN_MINUTES
-    }
+    }, 
+        status.HTTP_200_OK
+    )
         
