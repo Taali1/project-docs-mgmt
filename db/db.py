@@ -224,9 +224,15 @@ def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
         if check_permission(conn, user_id, project_id) is not None:
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM projects WHERE project_id = %s", (project_id,))
-                return cur.fetchone()
+                result = cur.fetchone()
+                return {
+                    "project_id": result["project_id"],
+                    "name": result["name"], 
+                    "description": result["description"], 
+                    "created_at": str(result["created_at"]),
+                    "modified_at": str(result["modified_at"])
+                    }
         raise HTTPException(status.HTTP_401_UNAUTHORIZED)
-
 
     else:
         accessible_projects = select_projects_with_permissions(conn, user_id)
@@ -244,8 +250,8 @@ def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
                 result[row["project_id"]] = {
                     "name": row["name"], 
                     "description": row["description"], 
-                    "created_at": row["created_at"], 
-                    "modified_at": row["modified_at"]
+                    "created_at": str(row["created_at"]),
+                    "modified_at": str(row["modified_at"])
                     }
 
             return result

@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status, Response, Depends
+from fastapi.responses import JSONResponse
 
 from main import app
 from views.auth import auth_requierd
@@ -6,7 +7,7 @@ from db.db import *
 
 
 @app.post("/project")
-def post_project(project: Project, user_payload: dict = Depends(auth_requierd)):
+def post_project(project: Project, user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     user_id = user_payload["sub"]
 
     if not project.name:
@@ -14,23 +15,28 @@ def post_project(project: Project, user_payload: dict = Depends(auth_requierd)):
 
     with get_db() as conn:
         try:
-            insert_project(conn, user_id, project)
+            project_id = insert_project(conn, user_id, project)
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    return Response("Project added succesfuly", status_code=201)
+    return JSONResponse(
+        {
+            "msg": f"Project added succesfully with ID: {project_id}", 
+            "project_id": project_id
+        },
+        status_code=201)
 
 
 # TODO: Add documents in Response
 @app.get("/projects")
-def get_all_projects(user_payload: dict = Depends(auth_requierd)):
+def get_all_projects(user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     with get_db() as conn:
         try:
-            result = select_project_info(conn, "login")
+            result = select_project_info(conn, user_payload["sub"])
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
-        return Response(result)
+        return JSONResponse(result, status_code=200)
 
-# TODO: GET /project/<project_id>/info - Return project’s details, if user has access
+# TODO: Add documents in Response
 @app.get("/project/{project_id}/info")
 def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
@@ -38,9 +44,20 @@ def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd
     
     with get_db() as conn:
         try:
-            pass
+            project_info = select_project_info(conn, user_payload["sub"], project_id=project_id)
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+    return JSONResponse({
+        project_info["project_id"]: 
+            {
+                "name": project_info["name"], 
+                "description": project_info["description"], 
+                "created_at": project_info["created_at"], 
+                "modified_at": project_info["modified_at"]
+            }  
+        }, 
+        status_code=200
+    )
 
 # TODO: PUT /project/<project_id>/info - Update projects details - name, description. Returns the updated project’s info
 

@@ -17,7 +17,8 @@ def secrets():
     return {
         "SECRET_KEY": os.getenv("SECRET_KEY"),
         "ALGORITHM": os.getenv("ALGORITHM"),
-        "TOKEN_EXPIRE_IN_MINUTES":int(os.getenv("TOKEN_EXPIRE_IN_MINUTES"))
+        "TOKEN_EXPIRE_IN_MINUTES": int(os.getenv("TOKEN_EXPIRE_IN_MINUTES")),
+        "TIME_ZONE_UTC_OFFSET": int(os.getenv("TIME_ZONE_UTC_OFFSET"))
     }
 
 REQUIRED_ENV_VARIABLES = {
