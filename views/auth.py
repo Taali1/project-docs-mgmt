@@ -14,10 +14,10 @@ import jwt
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 TOKEN_EXPIRE_IN_MINUTES = int(os.getenv("TOKEN_EXPIRE_IN_MINUTES"))
+TIME_ZONE_UTC_OFFSET = int(os.getenv("TIME_ZONE_UTC_OFFSET"))
 
 # Creating scheams for authentication
-auth_scheme = HTTPBearer()
-security_schema = HTTPBasic()
+auth_scheme = HTTPBearer()  
 
 def auth_requierd(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
     """Checks if user is logged in
@@ -52,11 +52,11 @@ def auth_requierd(credentials: HTTPAuthorizationCredentials = Depends(auth_schem
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
 
 
-def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_IN_MINUTES)) -> str:
-    """Creates token for user session from it's username and encodes it by using choosen algorithm and secret key using JWT
+def create_token(user_id: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_IN_MINUTES)) -> str:
+    """Creates token for user session from it's user_id and encodes it by using choosen algorithm and secret key using JWT
 
     Args:
-        data (dict): Dictionary with  username as "sub" key
+        user_id (str): ID of a user that requests a token
         expire (timedelta): Difference between two timestamps. Optional with TOKEN_EXPIRE_IN_MINUTES default
 
     Returns:
@@ -64,7 +64,7 @@ def create_token(data: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPIRE_
             "sub": Username
             "exp": Expiration timestamp
     """
-    to_encode = data.copy()
+    to_encode = {"sub": user_id}
     expire_time = datetime.utcnow() + expire
     to_encode.update({"exp": expire_time})
     token = jwt.encode(to_encode, SECRET_KEY, ALGORITHM)
@@ -138,7 +138,7 @@ def post_login(credentials: LoginRequest, db = Depends(get_db)) -> Response:
         if credentials.password != user.password:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
 
-    token = create_token({"sub": credentials.user_id})
+    token = create_token(credentials.user_id)
 
     return JSONResponse({
         "token": token,
