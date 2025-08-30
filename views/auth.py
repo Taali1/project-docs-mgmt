@@ -96,12 +96,9 @@ def post_user(user: UserRegister, db = Depends(get_db)) -> Response:
     
 
     with db as conn:
-        try:
-            result = select_user(conn, user.user_id)
-            if result:
-                raise HTTPException(status.HTTP_409_CONFLICT, "User with the same username already in registered")
-        except Exception as e:
-            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+        result = select_user(conn, user.user_id)
+        if result:
+            raise HTTPException(status.HTTP_409_CONFLICT, "User with the same username already in registered")
 
         try:
             insert_user(conn, user)
