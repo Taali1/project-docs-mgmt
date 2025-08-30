@@ -3,6 +3,7 @@ from tests.test_data import users_test_data
 
 import jwt
 from fastapi.security import HTTPAuthorizationCredentials
+from fastapi import HTTPException, status
 
 from views.auth import create_token, auth_requierd
 
@@ -105,8 +106,8 @@ def test_create_token(user_id, password, secrets):
     assert time_diffrence < expiration_time_seconds
 
 @pytest.mark.parametrize("user_id, password", users_test_data)
-def test_auth_requierd(user_id, password, secrets):
-    expire_time = datetime.utcnow() + timedelta(secrets["TOKEN_EXPIRE_IN_MINUTES"])
+def test_auth_requierd_success(user_id, password, secrets):
+    expire_time = datetime.utcnow() + timedelta(minutes=secrets["TOKEN_EXPIRE_IN_MINUTES"])
     token = jwt.encode({"sub": user_id, "exp": expire_time}, secrets["SECRET_KEY"], secrets["ALGORITHM"])
 
     request = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
@@ -114,3 +115,25 @@ def test_auth_requierd(user_id, password, secrets):
     payload = auth_requierd(request)
 
     assert payload["sub"] == user_id
+
+@pytest.mark.parametrize("user_id, password", users_test_data)
+def test_auth_requierd_fail(user_id, password, secrets):
+    expire_time = datetime.utcnow() + timedelta(minutes=-60)
+    expired_token = jwt.encode({"sub": user_id, "exp": expire_time}, secrets["SECRET_KEY"], secrets["ALGORITHM"])
+    invalid_token = jwt.encode({"sub": user_id, "exp": expire_time}, "wrong_secret_key", secrets["ALGORITHM"])
+
+
+    request_expired = HTTPAuthorizationCredentials(scheme="Bearer", credentials=expired_token)
+    request_invalid = HTTPAuthorizationCredentials(scheme="Bearer", credentials=invalid_token)
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth_requierd(request_expired)
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc_info.value.detail == "Expired token"
+
+    with pytest.raises(HTTPException) as exc_info:
+        auth_requierd(request_invalid)
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc_info.value.detail == "Invalid token"
+
+    
