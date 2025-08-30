@@ -1,8 +1,12 @@
 import pytest
 from tests.test_data import users_test_data
+
 import jwt
+from fastapi.security import HTTPAuthorizationCredentials
 
+from views.auth import create_token, auth_requierd
 
+from datetime import datetime, timedelta
 
 @pytest.mark.parametrize("user_id, password", users_test_data)
 def test_auth_success(client, mocker, user_id, password):
@@ -48,7 +52,7 @@ def test_login_success(client, db_connection, mocker, user_id, password, secrets
     assert response.json()["token"] is not None
     assert response.json()["expires_in_minutes"] == secrets["TOKEN_EXPIRE_IN_MINUTES"]
 
-    token = response.json()["token"]
+    token = str(response.json()["token"])
     payload = jwt.decode(token, secrets["SECRET_KEY"], algorithms=secrets["ALGORITHM"])
     user = payload.get("sub")
     assert user == user_id
@@ -77,4 +81,36 @@ def test_login_fail(client, db_connection, mocker, user_id, password):
     response = client.post("/login", json={"user_id": user_id, "password": "wrong_password"})
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid credentials"
-    
+
+@pytest.mark.parametrize("user_id, password", users_test_data)
+def test_create_token(user_id, password, secrets):
+
+    token = create_token(user_id)
+
+    assert isinstance(token, str)
+
+    decoded = jwt.decode(token, secrets["SECRET_KEY"], algorithms=secrets["ALGORITHM"])
+
+    assert decoded["sub"] == user_id
+
+    now = datetime.utcnow().timestamp()
+
+    expected_expiration = now + timedelta(minutes=secrets["TOKEN_EXPIRE_IN_MINUTES"]).total_seconds() 
+
+    token_exp = float(decoded["exp"])
+
+    time_diffrence = timedelta(expected_expiration - token_exp).total_seconds()
+    expiration_time_seconds = secrets["TOKEN_EXPIRE_IN_MINUTES"]*60
+
+    assert time_diffrence < expiration_time_seconds
+
+@pytest.mark.parametrize("user_id, password", users_test_data)
+def test_auth_requierd(user_id, password, secrets):
+    expire_time = datetime.utcnow() + timedelta(secrets["TOKEN_EXPIRE_IN_MINUTES"])
+    token = jwt.encode({"sub": user_id, "exp": expire_time}, secrets["SECRET_KEY"], secrets["ALGORITHM"])
+
+    request = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    payload = auth_requierd(request)
+
+    assert payload["sub"] == user_id
