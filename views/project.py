@@ -1,4 +1,4 @@
-from fastapi import Request, HTTPException, status, Response, Depends
+from fastapi import HTTPException, status, Response, Depends
 
 from main import app
 from views.auth import auth_requierd
