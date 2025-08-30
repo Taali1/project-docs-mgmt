@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status, Response
+from fastapi import HTTPException, status
 
 from db.models import *
 
