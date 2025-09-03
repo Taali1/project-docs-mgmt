@@ -5,31 +5,17 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-	
+
 jobs:
-  setup:
+  test:
     runs-on: ubuntu-latest
-	
+
     services:
       postgres:
         image: postgres:15
         ports:
-            - 5432:5432
+          - 5432:5432
         env:
-
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
-            POSTGRES_DB: project_mgmt
-        options: >-
-            --health-cmd "pg_isready -U postgres"
-            --health-interval 10s
-            --health-timeout 5s
-            --health-retries 5
-
-    steps:
-        - name: Checkout repository
-          uses: actions/checkout@v4
-
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: project_mgmt
@@ -79,53 +65,19 @@ jobs:
       - name: Initialize database schema for main database
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d db -f sql/schema.sql
+        
+      - name: Create test database
+        run: |
+         PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -c "CREATE DATABASE test_project_mgmt;"
 
-        
-        - name: Set up Python
-          uses: actions/setup-python@v5
-          with:
-              python-version: "3.10"
-        
-        - name: Create .env file from secrets
-          run: |
-              echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
-              echo "ALGORITHM=${{ secrets.ALGORITHM }}" >> .env
-              echo "TOKEN_EXPIRE_IN_MINUTES=${{ secrets.TOKEN_EXPIRE_IN_MINUTES }}" >> .env
-              echo "TIME_ZONE_UTC_OFFSET=${{ secrets.TIME_ZONE_UTC_OFFSET }}" >> .env
-              echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-              echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-              echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-              echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-              echo "TEST_DB_HOST=${{ secrets.TEST_DB_HOST }}" >> .env
-              echo "TEST_DB_NAME=${{ secrets.TEST_DB_NAME }}" >> .env
-              echo "TEST_DB_USER=${{ secrets.TEST_DB_USER }}" >> .env
-              echo "TEST_DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}" >> .env
+      - name: Initialize database schema for test database
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_project_mgmt -f sql/schema.sql
 
-
-        - name: Install dependencies
-          run: |
-            python -m pip install --upgrade pip
-            pip install -r requirements.txt
-        
-        - name: Initialize database schema for main database
-          run: |
-            PGPASSWORD=postgres psql -h localhost -U postgres -d db -f sql/schema.sql
-        
-        - name: Create test database
-          run: |
-            PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -c "CREATE DATABASE test_project_mgmt;"
-        
-        - name: Initialize database schema for test database
-          run: |
-            PGPASSWORD=postgres psql -h localhost -U postgres -d test_project_mgmt -f sql/schema.sql
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
       - name: Run tests with pytest
         run: pytest -v
 
-      - name: Teardown test database
+      - name: Deleting testdatabase if unit tests were passed
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -c "DROP DATABASE test_project_mgmt;"
 
