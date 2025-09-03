@@ -92,10 +92,10 @@ def get_documents(project_id: int, user_payload: dict = Depends(auth_requierd)):
 def invite_user(project_id: int, user: str = Query(...), user_payload: dict = Depends(auth_requierd), db = Depends(get_db)) -> JSONResponse:
     inviter_id = user_payload["sub"]
 
-    with db as conn:
-        inviter_permission = check_permission(conn, inviter_id, project_id)
-        if select_user(conn, user) == None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "User doesn't exist")
+
+    inviter_permission = check_permission(db, inviter_id, project_id)
+    if select_user(db, user) == None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User doesn't exist")
     
     
     if inviter_permission == Permission.owner.value:
