@@ -5,7 +5,11 @@ import jwt
 
 from fastapi import HTTPException
 
+
+from db.models import Permission
+from tests.test_data import user_project_test_data, users_test_data
 from tests.test_data import user_project_test_data
+
 
 def create_test_token(secrets, subject, expiration_minutes = None):
     if expiration_minutes is None:
@@ -86,3 +90,76 @@ def test_get_project_info(client, mocker, secrets, user_owner, user_participant)
     project.pop("project_id")
     assert response_project == project
 
+
+@pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
+def update_projects_details(client, mocker, user_owner, user_participant, secrets):
+    project_id = 121
+    project = {
+        "name": user_owner["name"],
+        "description": user_owner["description"]
+    }
+    mocker.patch("views.project.update_project", return_value = project)    
+    token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
+
+    response = client.put(
+        f"/project/{project['project_id']}/info",
+        headers = {"Authorization": f"Bearer {token}"},
+        json = {project}
+    )
+
+    assert response == project
+
+@pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
+def test_invite_user_success(db_connection, client, mocker, user_owner, secrets, user_participant):
+    mocker.patch("views.project.check_permission", return_value = Permission.owner.value)
+    with db_connection.cursor() as cur:
+        cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s)", (user_owner["user_id"], user_owner["password"]))
+        cur.execute("""
+            INSERT INTO projects (name, description, created_at, modified_at) 
+            VALUES (%s, %s, %s, %s) 
+            RETURNING project_id
+        """, 
+        (
+            user_owner["name"], 
+            user_owner["description"],
+            "12.12.2012 12:12", 
+            "12.12.2012 12:12"
+        ))
+        project_id = cur.fetchone()["project_id"]
+
+    user_id = user_owner["user_id"]
+    token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
+
+    response = client.post(
+        f"/project/{project_id}/invite?user={user_id}",
+        headers = {"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.json()["detail"] == "User succesfully added to project"
+
+# @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
+# def test_invite_user_fail(db_connection, client, mocker, user_owner, secrets, user_participant):
+#     mocker.patch("views.project.select_project_info", return_value = Permission.participant.value)
+#     with db_connection.cursor() as cur:
+#         cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s)", (user_owner["user_id"], user_owner["password"]))
+#         cur.execute("""
+#             INSERT INTO projects (name, description, created_at, modified_at) 
+#             VALUES (%s, %s, %s, %s) 
+#             RETURNING project_id
+#         """, 
+#         (
+#             user_owner["name"], 
+#             user_owner["description"],
+#             "12.12.2012 12:12", 
+#             "12.12.2012 12:12"
+#         ))
+#         project_id = cur.fetchone()["project_id"]
+
+#     user_id = user_owner["user_id"]
+#     token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
+
+#     client.post(
+#         f"/project/{project_id}/invite?user={user_id}",
+#         headers = {"Authorization": f"Bearer {token}"},
+#         json = {"user_id": user_owner["user_id"], "project_id": project_id}
+#     )
