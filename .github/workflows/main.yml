@@ -18,7 +18,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_project_mgmt
+          POSTGRES_DB: project_mgmt
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 10s
@@ -27,7 +27,7 @@ jobs:
 
     env:
       # You can map from GitHub secrets or fallback values
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/project_mgmt
       ENV_FILE: .env
 
     steps:
@@ -39,15 +39,28 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Create .env file from secrets
+        run: |
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+          echo "ALGORITHM=${{ secrets.ALGORITHM }}" >> .env
+          echo "TOKEN_EXPIRE_IN_MINUTES=${{ secrets.TOKEN_EXPIRE_IN_MINUTES }}" >> .env
+          echo "TIME_ZONE_UTC_OFFSET=${{ secrets.TIME_ZONE_UTC_OFFSET }}" >> .env
+
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+
+          echo "TEST_DB_HOST=${{ secrets.TEST_DB_HOST }}" >> .env
+          echo "TEST_DB_NAME=${{ secrets.TEST_DB_NAME }}" >> .env
+          echo "TEST_DB_USER=${{ secrets.TEST_DB_USER }}" >> .env
+          echo "TEST_DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}" >> .env
+
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Initialize test database schema
-        run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -f sql/schema.sql
-
 
       - name: Initialize database schema for main database
         run: |
