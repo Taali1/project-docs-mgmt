@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status, Response
+from fastapi import HTTPException, status
 
 from db.models import *
 
@@ -51,7 +51,7 @@ def insert_user(conn, user: User) -> None:
     with conn.cursor() as cur:
         cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s);", (user.user_id, user.password))
 
-def select_user(conn, user_id: str) -> dict:
+def select_user(conn, user_id: str) -> User:
     """
     Queries for user data.
 
@@ -64,7 +64,11 @@ def select_user(conn, user_id: str) -> dict:
     """
     with conn.cursor() as cur:
         cur.execute("SELECT user_id, password FROM users WHERE user_id = %s;", (user_id,))
-        return cur.fetchone()
+        user = cur.fetchone()
+        if user is not None:
+            return User(user_id=user["user_id"], password=user["password"])
+        else: 
+            return None
 
 def update_user(conn, user_id: str, user: User) -> None:
     """Updating users data
@@ -152,10 +156,16 @@ def update_project(conn, project: Project):
         query = f"""
             UPDATE projects
             SET {", ".join(fields)}
-            WHERE project_id = %s;
+            WHERE project_id = %s
+            RETURNING name, description;
         """
 
         cur.execute(query, values)
+        result = cur.fetchone()
+
+        return {"name": result["name"], "description": result["description"]}
+
+
 
 def delete_project(conn, user_id: str, project_id: int):
     """Deletes a project if users have such permissions.
@@ -220,9 +230,15 @@ def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
         if check_permission(conn, user_id, project_id) is not None:
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM projects WHERE project_id = %s", (project_id,))
-                return cur.fetchone()
+                result = cur.fetchone()
+                return {
+                    "project_id": result["project_id"],
+                    "name": result["name"], 
+                    "description": result["description"], 
+                    "created_at": str(result["created_at"]),
+                    "modified_at": str(result["modified_at"])
+                    }
         raise HTTPException(status.HTTP_401_UNAUTHORIZED)
-
 
     else:
         accessible_projects = select_projects_with_permissions(conn, user_id)
@@ -240,8 +256,8 @@ def select_project_info(conn, user_id: str, project_id: int = None) -> dict:
                 result[row["project_id"]] = {
                     "name": row["name"], 
                     "description": row["description"], 
-                    "created_at": row["created_at"], 
-                    "modified_at": row["modified_at"]
+                    "created_at": str(row["created_at"]),
+                    "modified_at": str(row["modified_at"])
                     }
 
             return result
@@ -266,6 +282,14 @@ def check_permission(conn, user_id: str, project_id: int) -> str:
         return result["permission"]
     else:
         return None
+
+def insert_permission(conn, user_id: str, project_id: int, permission: Permission) -> None:
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO user_project VALUES (%s, %s, %s)", (user_id, project_id, permission))
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+
 
 def delete_permission(conn, requester_id: str, user_id: str, project_id: int) -> None:
     """Deleting permission if user is an 'owner' or user himself is requesting for revoking his permissions
@@ -304,7 +328,7 @@ def delete_user(conn, user_id: str) -> None:
         cur.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
 
 def delete_project(conn, requester_id: str, project_id: int) -> None:
-    """Deleting project, if requester have permissions to do so
+    """Deleting project, if requester have FPns to do so
 
     Args:
         conn (psycopg2.connect): Connection to database.

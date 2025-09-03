@@ -12,6 +12,10 @@ class User(BaseModel):
     user_id: str
     password: str | None = None
 
+class LoginRequest(BaseModel):
+    user_id: str
+    password: str
+
 class Permission(str, Enum):
     owner: str = "owner"
     participant: str = "participant" 

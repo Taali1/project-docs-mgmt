@@ -1,4 +1,5 @@
-from fastapi import Request, HTTPException, status, Response, Depends
+from fastapi import HTTPException, status, Depends, Query
+from fastapi.responses import JSONResponse
 
 from main import app
 from views.auth import auth_requierd
@@ -6,7 +7,7 @@ from db.db import *
 
 
 @app.post("/project")
-def post_project(project: Project, user_payload: dict = Depends(auth_requierd)):
+def post_project(project: Project, user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     user_id = user_payload["sub"]
 
     if not project.name:
@@ -14,23 +15,28 @@ def post_project(project: Project, user_payload: dict = Depends(auth_requierd)):
 
     with get_db() as conn:
         try:
-            insert_project(conn, user_id, project)
+            project_id = insert_project(conn, user_id, project)
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-    return Response("Project added succesfuly", status_code=201)
+    return JSONResponse(
+        {
+            "msg": f"Project added succesfully with ID: {project_id}", 
+            "project_id": project_id
+        },
+        status_code=201)
 
 
 # TODO: Add documents in Response
 @app.get("/projects")
-def get_all_projects(user_payload: dict = Depends(auth_requierd)):
+def get_all_projects(user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     with get_db() as conn:
         try:
-            result = select_project_info(conn, "login")
+            result = select_project_info(conn, user_payload["sub"])
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
-        return Response(result)
+        return JSONResponse(result, status_code=200)
 
-# TODO: GET /project/<project_id>/info - Return project’s details, if user has access
+# TODO: Add documents in Response
 @app.get("/project/{project_id}/info")
 def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
@@ -38,16 +44,63 @@ def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd
     
     with get_db() as conn:
         try:
-            pass
+            project_info = select_project_info(conn, user_payload["sub"], project_id=project_id)
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, str(e))
+    return JSONResponse({
+        project_info["project_id"]: 
+            {
+                "name": project_info["name"], 
+                "description": project_info["description"], 
+                "created_at": project_info["created_at"], 
+                "modified_at": project_info["modified_at"]
+            }  
+        }, 
+        status_code=200
+    )
 
-# TODO: PUT /project/<project_id>/info - Update projects details - name, description. Returns the updated project’s info
+@app.put("project/{project_id}/info")
+def update_projects_details(project_id: int, project: Project, user_payload: dict = Depends(auth_requierd)):
+    if not project_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
 
-# TODO: DELETE /project/<project_id>- Delete project, can only be performed by the projects’ owner. Deletes the corresponding  documents
+    with get_db() as conn:
+        try:
+            result = update_project(conn, project)
+            return result
+        except Exception as e:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+
+# TODO: Add deleting documents
+@app.delete("/project/{project_id}")
+def remove_project(project_id: int, user_payload: dict = Depends(auth_requierd)):
+    if not project_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
+
+    with get_db() as conn:
+        delete_project(conn, user_payload["user_id"], project_id)
 
 # TODO: GET /project/<project_id>/documents- Return all of the project's documents
+@app.get("/project/{project_id}/documents")
+def get_documents(project_id: int, user_payload: dict = Depends(auth_requierd)):
+    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "Function not yet implemented")
+
 
 # TODO: POST /project/<project_id>/documents - Upload document/documents for a specific project
 
-# TODO: POST /project/<project_id>/invite?user=<user_id> - Grant access to the project for a specific user. If the request is not coming from the owner of the project, results in error. Granting access gives participant permissions to receiving user
+@app.post("/project/{project_id}/invite")
+def invite_user(project_id: int, user: str = Query(...), user_payload: dict = Depends(auth_requierd), db = Depends(get_db)) -> JSONResponse:
+    inviter_id = user_payload["sub"]
+
+    with db as conn:
+        inviter_permission = check_permission(conn, inviter_id, project_id)
+        if select_user(conn, user) == None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "User doesn't exist")
+    
+    
+    if inviter_permission == Permission.owner.value:
+        insert_permission(db, user, project_id, Permission.participant.value)
+    else:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Only owner can add user to project")
+    
+    return JSONResponse("User succesfully added to project", status.HTTP_201_CREATED)
