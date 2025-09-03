@@ -1,12 +1,13 @@
 from fastapi import HTTPException, status, Response, Depends
-from fastapi.security import HTTPBasic, HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
 
 import os
 from datetime import datetime, timedelta
 
 from main import app 
-from db.db import select_user, UserRegister, get_db, insert_user, TokenResponse, User, LoginRequest
+from db.db import select_user, get_db, insert_user, TokenResponse
+from db.models import *
 
 import jwt
 
