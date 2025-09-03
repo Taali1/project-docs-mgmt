@@ -156,10 +156,16 @@ def update_project(conn, project: Project):
         query = f"""
             UPDATE projects
             SET {", ".join(fields)}
-            WHERE project_id = %s;
+            WHERE project_id = %s
+            RETURNING name, description;
         """
 
         cur.execute(query, values)
+        result = cur.fetchone()
+
+        return {"name": result["name"], "description": result["description"]}
+
+
 
 def delete_project(conn, user_id: str, project_id: int):
     """Deletes a project if users have such permissions.
@@ -277,6 +283,14 @@ def check_permission(conn, user_id: str, project_id: int) -> str:
     else:
         return None
 
+def insert_permission(conn, user_id: str, project_id: int, permission: Permission) -> None:
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO user_project VALUES (%s, %s, %s)", (user_id, project_id, permission))
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
+
+
 def delete_permission(conn, requester_id: str, user_id: str, project_id: int) -> None:
     """Deleting permission if user is an 'owner' or user himself is requesting for revoking his permissions
     
@@ -314,7 +328,7 @@ def delete_user(conn, user_id: str) -> None:
         cur.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
 
 def delete_project(conn, requester_id: str, project_id: int) -> None:
-    """Deleting project, if requester have permissions to do so
+    """Deleting project, if requester have FPns to do so
 
     Args:
         conn (psycopg2.connect): Connection to database.
