@@ -48,6 +48,10 @@ jobs:
           DB_NAME=project_mgmt
           DB_USER=postgres
           DB_PASSWORD=postgres
+          TEST_DB_HOST=${{ secrets.TEST_DB_HOST }}
+          TEST_DB_NAME=${{ secrets.TEST_DB_NAME }}
+          TEST_DB_USER=${{ secrets.TEST_DB_USER }}
+          TEST_DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}
           EOF
 
       - name: Install dependencies
