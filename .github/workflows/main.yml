@@ -27,7 +27,6 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/project_mgmt
-      ENV_FILE: .env
 
     steps:
       - name: Checkout repository
@@ -40,18 +39,17 @@ jobs:
 
       - name: Create .env file from secrets
         run: |
-          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
-          echo "ALGORITHM=${{ secrets.ALGORITHM }}" >> .env
-          echo "TOKEN_EXPIRE_IN_MINUTES=${{ secrets.TOKEN_EXPIRE_IN_MINUTES }}" >> .env
-          echo "TIME_ZONE_UTC_OFFSET=${{ secrets.TIME_ZONE_UTC_OFFSET }}" >> .env
-          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          echo "TEST_DB_HOST=${{ secrets.TEST_DB_HOST }}" >> .env
-          echo "TEST_DB_NAME=${{ secrets.TEST_DB_NAME }}" >> .env
-          echo "TEST_DB_USER=${{ secrets.TEST_DB_USER }}" >> .env
-          echo "TEST_DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}" >> .env
+
+          cat > .env <<EOF
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          ALGORITHM=${{ secrets.ALGORITHM }}
+          TOKEN_EXPIRE_IN_MINUTES=${{ secrets.TOKEN_EXPIRE_IN_MINUTES }}
+          TIME_ZONE_UTC_OFFSET=${{ secrets.TIME_ZONE_UTC_OFFSET }}
+          DB_HOST=localhost
+          DB_NAME=project_mgmt
+          DB_USER=postgres
+          DB_PASSWORD=postgres
+          EOF
 
       - name: Install dependencies
         run: |
