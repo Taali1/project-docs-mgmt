@@ -61,22 +61,22 @@ jobs:
 
       - name: Initialize database schema
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -f sql/schema.sql
+          PGPASSWORD=postgres psql -h ${{ secrets.DB_HOST }} -U postgres -d project_mgmt -f sql/schema.sql
 
       - name: Create test database
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -c "CREATE DATABASE test_project_mgmt;"
+          PGPASSWORD=postgres psql -h ${{ secrets.DB_HOST }} -U postgres -d project_mgmt -c "CREATE DATABASE test_project_mgmt;"
 
       - name: Initialize schema for test database
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_project_mgmt -f sql/schema.sql
+          PGPASSWORD=postgres psql -h ${{ secrets.DB_HOST }} -U postgres -d test_project_mgmt -f sql/schema.sql
 
       - name: Run tests with pytest
         run: pytest -v
 
       - name: Teardown test database
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -c "DROP DATABASE test_project_mgmt;"
+          PGPASSWORD=postgres psql -h ${{ secrets.DB_HOST }} -U postgres -d project_mgmt -c "DROP DATABASE test_project_mgmt;"
 
   build:
     runs-on: ubuntu-latest
