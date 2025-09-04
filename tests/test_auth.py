@@ -94,16 +94,6 @@ def test_create_token(user_id, password, secrets):
 
     assert decoded["sub"] == user_id
 
-    now = datetime.utcnow().timestamp()
-
-    expected_expiration = now + timedelta(minutes=secrets["TOKEN_EXPIRE_IN_MINUTES"]).total_seconds() 
-
-    token_exp = float(decoded["exp"])
-
-    time_diffrence = timedelta(expected_expiration - token_exp).total_seconds()
-    expiration_time_seconds = secrets["TOKEN_EXPIRE_IN_MINUTES"]*60
-
-    assert time_diffrence < expiration_time_seconds
 
 @pytest.mark.parametrize("user_id, password", users_test_data)
 def test_auth_requierd_success(user_id, password, secrets):

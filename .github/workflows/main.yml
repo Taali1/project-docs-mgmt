@@ -39,6 +39,7 @@ jobs:
 
       - name: Create .env file from secrets
         run: |
+
           cat > .env <<EOF
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           ALGORITHM=${{ secrets.ALGORITHM }}
@@ -59,7 +60,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Initialize database schema
+      - name: Initialize schema for main database
         run: |
           PGPASSWORD=postgres psql -h ${{ secrets.DB_HOST }} -U postgres -d project_mgmt -f sql/schema.sql
 
@@ -71,16 +72,19 @@ jobs:
         run: |
           PGPASSWORD=postgres psql -h ${{ secrets.DB_HOST }} -U postgres -d test_project_mgmt -f sql/schema.sql
 
-      - name: Run tests with pytest
+      - name: Run tests
         run: pytest -v
 
       - name: Teardown test database
+        if: always()
         run: |
           PGPASSWORD=postgres psql -h ${{ secrets.DB_HOST }} -U postgres -d project_mgmt -c "DROP DATABASE test_project_mgmt;"
+ 
 
   build:
     runs-on: ubuntu-latest
     needs: test
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
