@@ -45,10 +45,10 @@ jobs:
           ALGORITHM=${{ secrets.ALGORITHM }}
           TOKEN_EXPIRE_IN_MINUTES=${{ secrets.TOKEN_EXPIRE_IN_MINUTES }}
           TIME_ZONE_UTC_OFFSET=${{ secrets.TIME_ZONE_UTC_OFFSET }}
-          DB_HOST=localhost
-          DB_NAME=project_mgmt
-          DB_USER=postgres
-          DB_PASSWORD=postgres
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           TEST_DB_HOST=${{ secrets.TEST_DB_HOST }}
           TEST_DB_NAME=${{ secrets.TEST_DB_NAME }}
           TEST_DB_USER=${{ secrets.TEST_DB_USER }}
