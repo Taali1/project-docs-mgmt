@@ -1,12 +1,12 @@
-from fastapi import HTTPException, status, Depends, Query
+from fastapi import HTTPException, status, Depends, Query, APIRouter
 from fastapi.responses import JSONResponse
 
-from main import app
 from views.auth import auth_requierd
 from db.db import *
 
+router = APIRouter(tags=["Project"])
 
-@app.post("/project")
+@router.post("/project")
 def post_project(project: Project, user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     user_id = user_payload["sub"]
 
@@ -27,7 +27,7 @@ def post_project(project: Project, user_payload: dict = Depends(auth_requierd)) 
 
 
 # TODO: Add documents in Response
-@app.get("/projects")
+@router.get("/projects")
 def get_all_projects(user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     with get_db() as conn:
         try:
@@ -37,7 +37,7 @@ def get_all_projects(user_payload: dict = Depends(auth_requierd)) -> JSONRespons
         return JSONResponse(result, status_code=200)
 
 # TODO: Add documents in Response
-@app.get("/project/{project_id}/info")
+@router.get("/project/{project_id}/info")
 def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
@@ -59,7 +59,7 @@ def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd
         status_code=200
     )
 
-@app.put("project/{project_id}/info")
+@router.put("project/{project_id}/info")
 def update_projects_details(project_id: int, project: Project, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
@@ -72,7 +72,7 @@ def update_projects_details(project_id: int, project: Project, user_payload: dic
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
 
 # TODO: Add deleting documents
-@app.delete("/project/{project_id}")
+@router.delete("/project/{project_id}")
 def remove_project(project_id: int, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
@@ -81,14 +81,14 @@ def remove_project(project_id: int, user_payload: dict = Depends(auth_requierd))
         delete_project(conn, user_payload["user_id"], project_id)
 
 # TODO: GET /project/<project_id>/documents- Return all of the project's documents
-@app.get("/project/{project_id}/documents")
+@router.get("/project/{project_id}/documents")
 def get_documents(project_id: int, user_payload: dict = Depends(auth_requierd)):
     raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "Function not yet implemented")
 
 
 # TODO: POST /project/<project_id>/documents - Upload document/documents for a specific project
 
-@app.post("/project/{project_id}/invite")
+@router.post("/project/{project_id}/invite")
 def invite_user(project_id: int, user: str = Query(...), user_payload: dict = Depends(auth_requierd), db = Depends(get_db)) -> JSONResponse:
     inviter_id = user_payload["sub"]
 
