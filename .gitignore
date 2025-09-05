@@ -209,3 +209,15 @@ __marimo__/
 # Personal use files
 cookies.txt
 blank.py
+__pycache__/main.cpython-310.pyc
+db/__pycache__/db.cpython-310.pyc
+db/__pycache__/models.cpython-310.pyc
+views/__pycache__/auth.cpython-310.pyc
+views/__pycache__/document.cpython-310.pyc
+/__pycache__
+/db/__pycache__
+/db/__pycache__
+/views/__pycache__
+/views/__pycache__
+/views/__pycache__
+/tests/__pycache__
