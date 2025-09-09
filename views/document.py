@@ -1,10 +1,14 @@
-from fastapi import HTTPException, APIRouter, UploadFile, File, status, Path
-from fastapi.responses import JSONResponse
+from fastapi import HTTPException, APIRouter, UploadFile, File, status, Path, Depends, Response
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from dotenv import load_dotenv
 import os
 
-import boto3
+from db.models import Permission 
+from views.auth import auth_requierd
+from db.db import check_permission, get_db
+
+import aioboto3
 from botocore.exceptions import NoCredentialsError, ClientError
 
 router = APIRouter(tags=["Docs"])
@@ -12,68 +16,117 @@ router = APIRouter(tags=["Docs"])
 load_dotenv()
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")
-AWS_ACCESS_KEY_ID = os.getenv()
-AWS_SECRET_ACCESS_KEY = os.getenv()
-AWS_REGION_NAME = os.getenv()
 
-s3 = boto3.client("s3")
+session = aioboto3.Session()
 
-def aws_create_folder(project_id: int) -> None:
-    folder_path = str(project_id) + "/"
+async def delete_s3_folder(project_id: int) -> None:
+    prefix = f"{project_id}/"
+    async with session.resource("s3") as s3:
+        bucket = await s3.Bucket(BUCKET_NAME)
+        await bucket.objects.filter(Prefix=prefix).delete()
 
-    response = s3.put_object(
-        Bucket=BUCKET_NAME, 
-        Key=folder_path
-        )
+async def get_s3_documents_list(project_id: int) -> list:
+    prefix = f"{project_id}/"
+    prefix_len = len(prefix)
+    result = []
 
+    async with session.resource("s3") as s3:
+        bucket = await s3.Bucket(BUCKET_NAME)
+        async for obj in bucket.objects.filter(Prefix=prefix):
+            result.append(obj.key[prefix_len:])
+    return result[1:]
 
-def aws_check_folders(folder_path: int) -> None:
-    response = s3.get_object(Bucket=BUCKET_NAME, prefix=folder_path)
-
-    if "Contents" not in response:
-        return None
-    else:
-        return [obj["Key"] for obj in response["Contents"]]
-            
-
-# TODO: GET /document/<document_id> - Download document, if the user has access to the corresponding project
-@router.get("/document/{document_id}")
-def aws_get_document(file_name: str, project_id: int) -> None:
-    file_path = f"{project_id}/{file_name}"
-    response = s3.puy_object(Bucket=BUCKET_NAME, Key=file_path)
-
-    return JSONResponse("", status.HTTP_200_OK)
-
-
-# TODO: PUT /document/<document_id> - Update document
-
-@router.post("/document/{document_id}")
-async def aws_upload_file(file: UploadFile = File(...), document_id: str = Path(...)):
-    try:
+async def upload_s3_file(file: UploadFile, project_id: int):
+    async with aioboto3.client("s3") as s3:
         contents = await file.read()
-        
-        s3.put_object(
+        key = f"{project_id}/{file.filename}"
+        await s3.put_object(
             Bucket=BUCKET_NAME,
-            Key=file.filename,
+            Key=key,
             Body=contents,
             ContentType=file.content_type
         )
-        
-        file_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{file.filename}"
-        return {"message": "Upload successful", "url": file_url}
-    
-    except NoCredentialsError:
-        raise HTTPException(status_code=500, detail="AWS credentials not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/document/{document_id}")
-async def delete_file(document_id: str) -> JSONResponse:
+
+@router.get("/document/{document_id:path}")
+async def get_s3_document(download_web: str = False , document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> None:
+    project_id = document_id.split("-")[0]
+    with get_db() as conn:
+        user_perm = await check_permission(conn, user_payload["sub"], project_id)
+
+    if user_perm is not None:
+        async with session.client("s3") as s3:
+            # if you want to download file trough web explorer 
+            if download_web:
+                try:
+                    response = await s3.get_object(Bucket=BUCKET_NAME,
+                        Key=document_id,
+                        Filename=document_id
+                        )
+                except s3.exceptions.NoSuchKey:
+                    raise HTTPException(status_code=404, detail="File not found")
+
+                stream = response["Body"]
+
+                async def file_iterator(chunk_size=1024*1024):
+                    async for chunk in stream.iter_chunks(chunk_size):
+                        yield chunk
+                
+                return StreamingResponse(
+                    file_iterator(),
+                    media_type="application/octet-stream",
+                    headers={"Content-Disposition": f"attachment; filename={document_id.split('-')[-1]}"}
+            )
+            # If you want to include file in json response
+            else:
+                try:
+                    response = await s3.get_object(Bucket=BUCKET_NAME, Key=document_id)
+                except s3.exceptions.NoSuchKey:
+                    raise HTTPException(status_code=404, detail="File not found")
+
+                content = await response["Body"].read()
+
+                return Response(
+                    content=content,
+                    media_type="application/octet-stream",
+                    headers={"Content-Disposition": f"attachment; filename={document_id.split('/')[-1]}"}
+                )
+    else:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unauthorized")
+
+
+@router.post("/document/{document_id:path}")
+async def upload_s3_file(file: UploadFile = File(...), document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)):
+    with get_db() as conn:
+        user_perm = await check_permission(conn, user_payload["sub"], document_id)
+
+    if user_perm is not None:
+        try:
+            async with session.resource("s3") as s3:
+                contents = await file.read()
+                
+                await s3.put_object(
+                    Bucket=BUCKET_NAME,
+                    Key=document_id,
+                    Body=contents,
+                    ContentType=file.content_type
+                )
+                
+                return JSONResponse(f"File saved with name: {document_id}", status.HTTP_200_OK)
+    
+        except NoCredentialsError:
+            raise HTTPException(status_code=500, detail="AWS credentials not found")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/document/{document_id:path}")
+async def delete_s3_document(document_id: str) -> JSONResponse:
     try:
-        s3.delete_object(
-            Bucket=BUCKET_NAME,
-            Key=document_id
-        )
+        async with session.client("s3") as s3:
+            await s3.delete_object(
+                Bucket=BUCKET_NAME,
+                Key=document_id
+            )
 
     except ClientError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
