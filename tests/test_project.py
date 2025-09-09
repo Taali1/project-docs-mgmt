@@ -55,7 +55,7 @@ def test_get_all_projects(client, mocker, secrets, user_owner, user_participant)
                 "name": user_owner["name"], 
                 "description": user_owner["description"]
             }})
-    mocker.path("views.project.get_s3_documents_list", return_value = ["file.pdf"])
+    mocker.patch("views.project.get_s3_documents_list", return_value = ["file.pdf"])
 
     token = create_test_token(secrets, user_owner["user_id"])
 
