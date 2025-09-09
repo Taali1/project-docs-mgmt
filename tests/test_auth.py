@@ -6,13 +6,14 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi import HTTPException, status
 
 from views.auth import create_token, auth_requierd
+from db.models import User
 
 from datetime import datetime, timedelta
 
 @pytest.mark.parametrize("user_id, password", users_test_data)
 def test_auth_success(client, mocker, user_id, password):
-    mocker.patch("main.select_user", return_value=None)
-    mocker.patch("main.insert_user", return_value=None)
+    mocker.patch("views.auth.select_user", return_value=None)
+    mocker.patch("views.auth.insert_user", return_value=None)
 
     response = client.post("/auth", json={"user_id": user_id, "password": password, "repeat_password": password})
     
@@ -21,8 +22,8 @@ def test_auth_success(client, mocker, user_id, password):
 
 @pytest.mark.parametrize("user_id, password", users_test_data)
 def test_auth_fail(client, mocker, user_id, password):
-    mocker.patch("main.select_user", return_value=None)
-    mocker.patch("main.insert_user", return_value=None)
+    mocker.patch("views.auth.select_user", return_value=None)
+    mocker.patch("views.auth.insert_user", return_value=None)
 
     response = client.post("/auth", json={"user_id": user_id, "password": "", "repeat_password": password})
     assert response.status_code == 400
@@ -42,7 +43,7 @@ def test_auth_fail(client, mocker, user_id, password):
 
 @pytest.mark.parametrize("user_id, password", users_test_data)
 def test_login_success(client, db_connection, mocker, user_id, password, secrets):
-    mocker.patch("main.select_user", return_value=None)
+    mocker.patch("views.auth.select_user", return_value=User(user_id=user_id, password=password))
 
     with db_connection.cursor() as cur:
         cur.execute("INSERT INTO users VALUES (%s, %s)", (user_id, password))

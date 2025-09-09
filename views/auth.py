@@ -1,15 +1,17 @@
-from fastapi import HTTPException, status, Response, Depends
+from fastapi import HTTPException, status, Response, Depends, APIRouter
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
 
 import os
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
-from main import app 
 from db.db import select_user, get_db, insert_user, TokenResponse
 from db.models import *
 
 import jwt
+
+load_dotenv()
 
 # Getting environmental variables
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -19,6 +21,8 @@ TIME_ZONE_UTC_OFFSET = int(os.getenv("TIME_ZONE_UTC_OFFSET"))
 
 # Creating scheams for authentication
 auth_scheme = HTTPBearer()  
+
+router = APIRouter(tags=["Auth"])
 
 def auth_requierd(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
     """Checks if user is logged in
@@ -71,7 +75,7 @@ def create_token(user_id: dict, expire: timedelta = timedelta(minutes=TOKEN_EXPI
     token = jwt.encode(to_encode, SECRET_KEY, ALGORITHM)
     return token
 
-@app.post("/auth")
+@router.post("/auth")
 def post_user(user: UserRegister, db = Depends(get_db)) -> Response:
     """Registers user to data base
     
@@ -107,7 +111,7 @@ def post_user(user: UserRegister, db = Depends(get_db)) -> Response:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     return Response("Registerd succesfuly", status.HTTP_201_CREATED)
 
-@app.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse)
 def post_login(credentials: LoginRequest, db = Depends(get_db)) -> Response:
     """
     Logs in user and creates JWT session token

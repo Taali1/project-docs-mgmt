@@ -23,7 +23,7 @@ class Permission(str, Enum):
 class User_Project(BaseModel):
     user_id: str
     project_id: int
-    permission: Permission
+    permission: Permission | None = None
     
 class Project(BaseModel):
     project_id: int | None = None
@@ -36,3 +36,4 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+
