@@ -16,7 +16,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-#### Database setup
+#### Database setup (it will ask for password)
 ```bash
 psql -U postgres -c "CREATE DATABASE project_mgmt;"
 ```
