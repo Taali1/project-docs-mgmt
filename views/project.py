@@ -8,7 +8,7 @@ from db.db import *
 from views.document import get_s3_documents_list, upload_s3_file
 from views.document import delete_s3_folder
 
-router = APIRouter(tags=["Project"])
+router = APIRouter(tags=["Projects"])
 
 @router.post("/project")
 def post_project(project: Project, user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
@@ -44,7 +44,7 @@ async def get_all_projects(user_payload: dict = Depends(auth_requierd)) -> JSONR
         result[project_id]["documents"] = documents
     return JSONResponse(result, status_code=200)
 
-@router.get("/project/{project_id}/info")
+@router.get("/projects/{project_id}")
 async def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
@@ -72,7 +72,7 @@ async def get_project_info(project_id: int, user_payload: dict = Depends(auth_re
         status_code=200
     )
 
-@router.put("project/{project_id}/info")
+@router.put("projects/{project_id}")
 def update_projects_details(project_id: int, project: Project, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
@@ -84,7 +84,7 @@ def update_projects_details(project_id: int, project: Project, user_payload: dic
         except Exception as e:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, e)
 
-@router.delete("/project/{project_id}")
+@router.delete("/projects/{project_id}")
 async def remove_project(project_id: int, user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
@@ -101,7 +101,7 @@ async def remove_project(project_id: int, user_payload: dict = Depends(auth_requ
         else:
             raise HTTPException("Unauthorized", status.HTTP_401_UNAUTHORIZED)
 
-@router.get("/project/{project_id}/documents")
+@router.get("/projects/{project_id}/documents")
 async def get_project_documents(project_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     user_id = user_payload["sub"]
     project_id = int(project_id)
@@ -114,7 +114,7 @@ async def get_project_documents(project_id: str = Path(...), user_payload: dict 
     else:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unauthorized")
 
-@router.post("/project/{project_id}/documents")
+@router.post("/projects/{project_id}/documents")
 async def upload_project_documents(files: list[UploadFile] = File(...), project_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     with get_db() as conn:
         user_permission = check_permission(conn, user_payload["sub"], project_id)
@@ -125,7 +125,7 @@ async def upload_project_documents(files: list[UploadFile] = File(...), project_
     else:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unauthorized")
 
-@router.post("/project/{project_id}/invite")
+@router.post("/projects/{project_id}/invite")
 async def invite_user(project_id: int, user: str = Query(...), user_payload: dict = Depends(auth_requierd), db = Depends(get_db)) -> JSONResponse:
     inviter_id = user_payload["sub"]
 

@@ -48,20 +48,21 @@ async def upload_s3_file(file: UploadFile, project_id: int):
         )
 
 
-@router.get("/document/{document_id:path}")
-async def get_s3_document(download_web: str = False , document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> None:
-    project_id = document_id.split("-")[0]
+@router.get("/projects/{project_id}/documents/{document_id}")
+async def get_s3_document(project_id: str, download_web: str = False , document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> None:
+    key = f"{project_id}/{document_id}"
     with get_db() as conn:
-        user_perm = await check_permission(conn, user_payload["sub"], project_id)
+        user_perm = await check_permission(conn, user_payload["sub"], int(project_id))
 
     if user_perm is not None:
         async with session.client("s3") as s3:
             # if you want to download file trough web explorer 
             if download_web:
                 try:
-                    response = await s3.get_object(Bucket=BUCKET_NAME,
-                        Key=document_id,
-                        Filename=document_id
+                    response = await s3.get_object(
+                        Bucket=BUCKET_NAME,
+                        Key=key,
+                        Filename=key
                         )
                 except s3.exceptions.NoSuchKey:
                     raise HTTPException(status_code=404, detail="File not found")
@@ -80,7 +81,10 @@ async def get_s3_document(download_web: str = False , document_id: str = Path(..
             # If you want to include file in json response
             else:
                 try:
-                    response = await s3.get_object(Bucket=BUCKET_NAME, Key=document_id)
+                    response = await s3.get_object(
+                        Bucket=BUCKET_NAME, 
+                        Key=key, 
+                        Filename=key)
                 except s3.exceptions.NoSuchKey:
                     raise HTTPException(status_code=404, detail="File not found")
 
@@ -95,8 +99,9 @@ async def get_s3_document(download_web: str = False , document_id: str = Path(..
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unauthorized")
 
 
-@router.post("/document/{document_id:path}")
-async def upload_s3_file(file: UploadFile = File(...), document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)):
+@router.post("/projects/{project_id}/documents/{document_id}")
+async def upload_s3_file(file: UploadFile = File(...),project_id: str = Path(...), document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)):
+    key = f"{project_id}/{document_id}"
     with get_db() as conn:
         user_perm = await check_permission(conn, user_payload["sub"], document_id)
 
@@ -107,7 +112,7 @@ async def upload_s3_file(file: UploadFile = File(...), document_id: str = Path(.
                 
                 await s3.put_object(
                     Bucket=BUCKET_NAME,
-                    Key=document_id,
+                    Key=key,
                     Body=contents,
                     ContentType=file.content_type
                 )
@@ -119,13 +124,14 @@ async def upload_s3_file(file: UploadFile = File(...), document_id: str = Path(.
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/document/{document_id:path}")
-async def delete_s3_document(document_id: str) -> JSONResponse:
+@router.delete("/projects/{project_id}/documents/{document_id}")
+async def delete_s3_document(project_id: str = Path(...), document_id: str = Path(...)) -> JSONResponse:
+    key = f"{project_id}/{document_id}"
     try:
         async with session.client("s3") as s3:
             await s3.delete_object(
                 Bucket=BUCKET_NAME,
-                Key=document_id
+                Key=key
             )
 
     except ClientError as e:
