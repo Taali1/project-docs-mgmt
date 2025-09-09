@@ -26,7 +26,7 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/project_mgmt
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/project_mgmt
 
     steps:
       - name: Checkout repository
@@ -61,21 +61,13 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Wait for Postgres
-        run: |
-          for i in {1..10}; do
-            PGPASSWORD=postgres psql -h postgres -U postgres -c '\q' && break
-            echo "Postgres is unavailable - sleeping"
-            sleep 5
-          done
-
       - name: Create test database
         run: |
-         PGPASSWORD=postgres psql -h postgres -U postgres -c "CREATE DATABASE test_project_mgmt;"
+         PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE test_project_mgmt;"
 
       - name: Initialize test database schema
         run: |
-          PGPASSWORD=postgres psql -h postgres -U postgres -d test_project_mgmt -f sql/schema.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_project_mgmt -f sql/schema.sql
 
       - name: Run pytest
         run: pytest
