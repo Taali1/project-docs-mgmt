@@ -53,6 +53,7 @@ jobs:
           TEST_DB_NAME=${{ secrets.TEST_DB_NAME }}
           TEST_DB_USER=${{ secrets.TEST_DB_USER }}
           TEST_DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}
+          ALLOWED_EXTENSIONS=${{ secrets.ALLOWED_EXTENSIONS }}
           EOF
 
       - name: Install dependencies
