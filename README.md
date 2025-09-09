@@ -37,7 +37,7 @@ In your project directory, run commands
 fastapi run main.py
 ```
 
-## OR IN DOCKER CONTAINER
+## Or in the Docker container
 #### Prerequisites: You need a docker to be installed on your machine
 Pulling Docker container:
 ```bash
