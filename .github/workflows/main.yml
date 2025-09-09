@@ -100,4 +100,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-app:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/project-docs-mgmt:latest

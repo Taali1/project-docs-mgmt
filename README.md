@@ -33,11 +33,11 @@ fastapi run main.py
 
 ## OR IN DOCKER CONTAINER
 #### Prerequisites: You need a docker to be installed on your machine
-Build Docker container:
+Pulling Docker container:
 ```bash
-
+docker pull taali1/project-docs-mgmt:latest
 ```
 Run Docker container:
 ```bash
-
+docker run --env-file .env project-docs-mgmt
 ```
