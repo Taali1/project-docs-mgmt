@@ -6,12 +6,6 @@ COPY . .
 # Install curl
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Install git
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
-
-# Clone the repo directly
-RUN git clone https://github.com/Taal1/project-docs-mgmt.git .
-
 RUN apt-get update && apt-get install -y libpq-dev gcc python3-dev
 
 # Installing required packages
