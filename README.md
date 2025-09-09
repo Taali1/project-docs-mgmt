@@ -19,8 +19,14 @@ pip install -r requirements.txt
 #### Database setup
 ```bash
 psql -U postgres -c "CREATE DATABASE project_mgmt;"
+```
+```bash
 psql -U postgres -c "CREATE DATABASE test_project_mgmt;"
+```
+```bash
 psql -U postgres -d test_project_mgmt -f sql/schema.sql
+```
+```bash
 psql -U postgres -d project_mgmt -f sql/schema.sql
 ```
 
