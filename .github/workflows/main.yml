@@ -26,7 +26,7 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/project_mgmt
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/project_mgmt
 
     steps:
       - name: Checkout repository
@@ -45,34 +45,42 @@ jobs:
           ALGORITHM=${{ secrets.ALGORITHM }}
           TOKEN_EXPIRE_IN_MINUTES=${{ secrets.TOKEN_EXPIRE_IN_MINUTES }}
           TIME_ZONE_UTC_OFFSET=${{ secrets.TIME_ZONE_UTC_OFFSET }}
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_HOST=localhost
+          DB_NAME=project_mgmt
+          DB_USER=postgres
+          DB_PASSWORD=postgres
           TEST_DB_HOST=${{ secrets.TEST_DB_HOST }}
           TEST_DB_NAME=${{ secrets.TEST_DB_NAME }}
           TEST_DB_USER=${{ secrets.TEST_DB_USER }}
           TEST_DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}
-          ALLOWED_EXTENSIONS=${{ secrets.ALLOWED_EXTENSIONS }}
           EOF
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest
+
+      - name: Initialize schema for main database
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -f sql/schema.sql
 
       - name: Create test database
         run: |
-         PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE test_project_mgmt;"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -c "CREATE DATABASE test_project_mgmt;"
 
-      - name: Initialize test database schema
+      - name: Initialize schema for test database
         run: |
           PGPASSWORD=postgres psql -h localhost -U postgres -d test_project_mgmt -f sql/schema.sql
 
-      - name: Run pytest
-        run: pytest
+      - name: Run tests
+        run: pytest -v
 
-  docker:
+      - name: Teardown test database
+        if: always()
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d project_mgmt -c "DROP DATABASE IF EXISTS test_project_mgmt;"
+
+  build:
     runs-on: ubuntu-latest
     needs: test
 
@@ -91,4 +99,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/project-docs-mgmt:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/fastapi-app:latest
