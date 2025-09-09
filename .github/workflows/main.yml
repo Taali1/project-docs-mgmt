@@ -63,11 +63,11 @@ jobs:
 
       - name: Create test database
         run: |
-         PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE test_project_mgmt;"
+         PGPASSWORD=postgres psql -h postgres -U postgres -c "CREATE DATABASE test_project_mgmt;"
 
       - name: Initialize test database schema
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_project_mgmt -f sql/schema.sql
+          PGPASSWORD=postgres psql -h postgres -U postgres -d test_project_mgmt -f sql/schema.sql
 
       - name: Run pytest
         run: pytest
