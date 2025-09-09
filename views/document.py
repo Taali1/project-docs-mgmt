@@ -10,7 +10,7 @@ from db.db import check_permission, get_db
 import aioboto3
 from botocore.exceptions import NoCredentialsError, ClientError
 
-router = APIRouter(tags=["Docs"])
+router = APIRouter(tags=["Documents"])
 
 load_dotenv()
 
@@ -127,10 +127,10 @@ async def get_s3_document(project_id: str, download_web: str = False , document_
 async def upload_s3_file(file: UploadFile = File(...),project_id: str = Path(...), document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)):
     key = f"{project_id}/{document_id}"
 
-    check_file_extension([file])
+    await check_file_extension([file])
 
     with get_db() as conn:
-        user_perm = await check_permission(conn, user_payload["sub"], document_id)
+        user_perm = check_permission(conn, user_payload["sub"], document_id)
 
     if user_perm is not None:
         try:

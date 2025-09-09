@@ -67,7 +67,7 @@ def test_get_all_projects(client, mocker, secrets, user_owner, user_participant)
     assert 0 < len(response.json()) < 2
 
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_get_project_info(client, mocker, secrets, user_owner, user_participant):
+def test_get_project(client, mocker, secrets, user_owner, user_participant):
     project = {
             "project_id": 121,
             "name": user_owner["name"],
@@ -82,7 +82,7 @@ def test_get_project_info(client, mocker, secrets, user_owner, user_participant)
     token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
 
     response = client.get(
-        f"/project/{project['project_id']}/info",
+        f"/projects/{project['project_id']}",
         headers = {"Authorization": f"Bearer {token}"}
     )
 
@@ -118,7 +118,7 @@ def test_remove_project(client, mocker, secrets, user_owner, user_participant):
     project_id = 111
 
     response = client.delete(
-        f"/project/{project_id}",
+        f"/projects/{project_id}",
         headers = {"Authorization": f"Bearer {token}"}
     )
 
@@ -134,7 +134,7 @@ def test_get_project_documents_success(client, mocker, secrets, user_owner, user
     project_id = 111
 
     response = client.get(
-        f"/project/{project_id}/documents",
+        f"/projects/{project_id}/documents",
         headers = {"Authorization": f"Bearer {token}"}
     )
 
@@ -149,7 +149,7 @@ def test_get_project_documents_fail(client, mocker, secrets, user_owner, user_pa
     project_id = 111
 
     response = client.get(
-        f"/project/{project_id}/documents",
+        f"/projects/{project_id}/documents",
         headers = {"Authorization": f"Bearer {token}"}
     )
 
@@ -163,11 +163,11 @@ def test_upload_project_documents_success(client, mocker, secrets, user_owner, u
     mocker.patch("views.project.check_permission", return_value = None)  
     mocker.patch("views.project.upload_s3_file", return_value = None)
     token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
-    upload_files = ["test_file.txt", "test_image.png"]
+    upload_files = ["test_file.pdf", "test_image.png"]
     project_id = 111
 
     response = client.post(
-        f"/project/{project_id}/documents",
+        f"/projects/{project_id}/documents",
         headers = {"Authorization": f"Bearer {token}"},
         json = upload_files
     )
@@ -181,10 +181,10 @@ def test_upload_project_documents_success(client, mocker, secrets, user_owner, u
     mocker.patch("views.project.check_permission", return_value = None)
     token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
     project_id = 111
-    files = {"files": ("test.txt", BytesIO(b"file_content"), "text/plain")}
+    files = {"files": ("test.pdf", BytesIO(b"file_content"), "text/plain")}
 
     response = client.post(
-        f"/project/{project_id}/documents",
+        f"/projects/{project_id}/documents",
         headers = {"Authorization": f"Bearer {token}"},
         files = files
     )
@@ -192,6 +192,18 @@ def test_upload_project_documents_success(client, mocker, secrets, user_owner, u
     assert response is not None
     assert response.status_code == 401
     assert response.json()["detail"] == "Unauthorized"
+
+    files = {"files": ("test.txt", BytesIO(b"file_content"), "text/plain")}
+
+    response = client.post(
+        f"/projects/{project_id}/documents",
+        headers = {"Authorization": f"Bearer {token}"},
+        files = files
+    )
+
+    assert response is not None
+    assert response.status_code == 406
+
 
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
 def test_invite_user_fail(db_connection, client, mocker, user_owner, secrets, user_participant):
