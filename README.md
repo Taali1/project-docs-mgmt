@@ -47,5 +47,5 @@ docker pull taali1/project-docs-mgmt:latest
 ```
 Run Docker container:
 ```bash
-docker run --env-file .env project-docs-mgmt
+docker run --env-file .env taali1/project-docs-mgmt
 ```
