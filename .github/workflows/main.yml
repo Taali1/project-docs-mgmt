@@ -37,6 +37,24 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Create .env file from secrets
+        run: |
+
+          cat > .env <<EOF
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          ALGORITHM=${{ secrets.ALGORITHM }}
+          TOKEN_EXPIRE_IN_MINUTES=${{ secrets.TOKEN_EXPIRE_IN_MINUTES }}
+          TIME_ZONE_UTC_OFFSET=${{ secrets.TIME_ZONE_UTC_OFFSET }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          TEST_DB_HOST=${{ secrets.TEST_DB_HOST }}
+          TEST_DB_NAME=${{ secrets.TEST_DB_NAME }}
+          TEST_DB_USER=${{ secrets.TEST_DB_USER }}
+          TEST_DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}
+          ALLOWED_EXTENSIONS=${{ secrets.ALLOWED_EXTENSIONS }}
+          EOF
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
