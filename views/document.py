@@ -4,18 +4,18 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from dotenv import load_dotenv
 import os
 
-from db.models import Permission 
 from views.auth import auth_requierd
 from db.db import check_permission, get_db
 
 import aioboto3
 from botocore.exceptions import NoCredentialsError, ClientError
 
-router = APIRouter(tags=["Docs"])
+router = APIRouter(tags=["Documents"])
 
 load_dotenv()
 
 BUCKET_NAME = os.getenv("BUCKET_NAME")
+ALLOWED_EXTENSIONS = os.getenv("ALLOWED_EXTENSIONS").split(",")
 
 session = aioboto3.Session()
 
@@ -46,6 +46,30 @@ async def upload_s3_file(file: UploadFile, project_id: int):
             Body=contents,
             ContentType=file.content_type
         )
+
+async def check_file_extension(files: list[UploadFile]) -> bool:
+    if not isinstance(files, list):
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, "Wrong data type"
+        )
+
+    for file in files:
+        # Safely get extension with dot
+        parts = file.filename.lower().rsplit(".", 1)
+        if len(parts) != 2:
+            raise HTTPException(
+                status.HTTP_406_NOT_ACCEPTABLE,
+                detail=f"File '{file.filename}' has no extension"
+            )
+        ext = "." + parts[1]
+
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status.HTTP_406_NOT_ACCEPTABLE,
+                detail=f"Only {', '.join(ALLOWED_EXTENSIONS)} files are allowed"
+            )
+
+    return True
 
 
 @router.get("/projects/{project_id}/documents/{document_id}")
@@ -102,8 +126,11 @@ async def get_s3_document(project_id: str, download_web: str = False , document_
 @router.post("/projects/{project_id}/documents/{document_id}")
 async def upload_s3_file(file: UploadFile = File(...),project_id: str = Path(...), document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)):
     key = f"{project_id}/{document_id}"
+
+    await check_file_extension([file])
+
     with get_db() as conn:
-        user_perm = await check_permission(conn, user_payload["sub"], document_id)
+        user_perm = check_permission(conn, user_payload["sub"], document_id)
 
     if user_perm is not None:
         try:

@@ -5,8 +5,7 @@ import asyncio
 
 from views.auth import auth_requierd
 from db.db import *
-from views.document import get_s3_documents_list, upload_s3_file
-from views.document import delete_s3_folder
+from views.document import get_s3_documents_list, upload_s3_file, delete_s3_folder, check_file_extension
 
 router = APIRouter(tags=["Projects"])
 
@@ -45,7 +44,7 @@ async def get_all_projects(user_payload: dict = Depends(auth_requierd)) -> JSONR
     return JSONResponse(result, status_code=200)
 
 @router.get("/projects/{project_id}")
-async def get_project_info(project_id: int, user_payload: dict = Depends(auth_requierd)):
+async def get_project(project_id: int, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
     with get_db() as conn:
@@ -116,6 +115,9 @@ async def get_project_documents(project_id: str = Path(...), user_payload: dict 
 
 @router.post("/projects/{project_id}/documents")
 async def upload_project_documents(files: list[UploadFile] = File(...), project_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
+    
+    await check_file_extension(files)
+    
     with get_db() as conn:
         user_permission = check_permission(conn, user_payload["sub"], project_id)
     
