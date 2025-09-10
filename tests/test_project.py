@@ -94,7 +94,7 @@ def test_get_project(client, mocker, secrets, user_owner, user_participant):
 
 
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def update_projects_details(client, mocker, user_owner, user_participant, secrets):
+def test_update_projects_details(client, mocker, user_owner, user_participant, secrets):
     project_id = 121
     project = {
         "name": user_owner["name"],
@@ -104,12 +104,14 @@ def update_projects_details(client, mocker, user_owner, user_participant, secret
     token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
 
     response = client.put(
-        f"/project/{project['project_id']}/info",
+        f"/projects/{project_id}",
         headers = {"Authorization": f"Bearer {token}"},
-        json = {project}
+        json = project
     )
 
-    assert response == project
+    assert response is not None
+    assert response.status_code == 202
+    assert response.json()["msg"] == "Project details updated succesfully"
 
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
 def test_remove_project(client, mocker, secrets, user_owner, user_participant):

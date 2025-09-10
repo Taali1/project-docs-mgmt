@@ -34,14 +34,14 @@ async def get_s3_documents_list(project_id: int) -> list:
         bucket = await s3.Bucket(BUCKET_NAME)
         async for obj in bucket.objects.filter(Prefix=prefix):
             result.append(obj.key[prefix_len:])
-    return result[1:]
+    return result
 
 async def upload_s3_file(file: UploadFile, project_id: int):
-    async with aioboto3.client("s3") as s3:
+    async with session.resource("s3") as s3:
+        bucket = await s3.Bucket(BUCKET_NAME)
         contents = await file.read()
         key = f"{project_id}/{file.filename}"
-        await s3.put_object(
-            Bucket=BUCKET_NAME,
+        await bucket.put_object(
             Key=key,
             Body=contents,
             ContentType=file.content_type
@@ -71,26 +71,19 @@ async def check_file_extension(files: list[UploadFile]) -> bool:
 
     return True
 
-
+# TODO: Exception for file not found
 @router.get("/projects/{project_id}/documents/{document_id}")
 async def get_s3_document(project_id: str, download_web: str = False , document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> None:
     key = f"{project_id}/{document_id}"
     with get_db() as conn:
-        user_perm = await check_permission(conn, user_payload["sub"], int(project_id))
+        user_perm = check_permission(conn, user_payload["sub"], int(project_id))
 
     if user_perm is not None:
-        async with session.client("s3") as s3:
+        async with session.resource("s3") as s3:
+            obj = await s3.Object(BUCKET_NAME, key)
+            response = await obj.get()
             # if you want to download file trough web explorer 
             if download_web:
-                try:
-                    response = await s3.get_object(
-                        Bucket=BUCKET_NAME,
-                        Key=key,
-                        Filename=key
-                        )
-                except s3.exceptions.NoSuchKey:
-                    raise HTTPException(status_code=404, detail="File not found")
-
                 stream = response["Body"]
 
                 async def file_iterator(chunk_size=1024*1024):
@@ -104,14 +97,6 @@ async def get_s3_document(project_id: str, download_web: str = False , document_
             )
             # If you want to include file in json response
             else:
-                try:
-                    response = await s3.get_object(
-                        Bucket=BUCKET_NAME, 
-                        Key=key, 
-                        Filename=key)
-                except s3.exceptions.NoSuchKey:
-                    raise HTTPException(status_code=404, detail="File not found")
-
                 content = await response["Body"].read()
 
                 return Response(
@@ -124,21 +109,20 @@ async def get_s3_document(project_id: str, download_web: str = False , document_
 
 
 @router.post("/projects/{project_id}/documents/{document_id}")
-async def upload_s3_file(file: UploadFile = File(...),project_id: str = Path(...), document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)):
+async def update_s3_file(file: UploadFile = File(...),project_id: str = Path(...), document_id: str = Path(...), user_payload: dict = Depends(auth_requierd)):
     key = f"{project_id}/{document_id}"
 
     await check_file_extension([file])
 
     with get_db() as conn:
-        user_perm = check_permission(conn, user_payload["sub"], document_id)
+        user_perm = check_permission(conn, user_payload["sub"], project_id)
 
     if user_perm is not None:
         try:
             async with session.resource("s3") as s3:
                 contents = await file.read()
-                
-                await s3.put_object(
-                    Bucket=BUCKET_NAME,
+                bucket = await s3.Bucket(BUCKET_NAME)
+                await bucket.put_object(
                     Key=key,
                     Body=contents,
                     ContentType=file.content_type
@@ -155,10 +139,15 @@ async def upload_s3_file(file: UploadFile = File(...),project_id: str = Path(...
 async def delete_s3_document(project_id: str = Path(...), document_id: str = Path(...)) -> JSONResponse:
     key = f"{project_id}/{document_id}"
     try:
-        async with session.client("s3") as s3:
-            await s3.delete_object(
-                Bucket=BUCKET_NAME,
-                Key=key
+        async with session.resource("s3") as s3:
+            bucket = await s3.Bucket(BUCKET_NAME)
+            await bucket.delete_objects(
+                Delete={
+                    'Objects': [
+                        {'Key': key}
+                    ],
+                    'Quiet': True
+                }
             )
 
     except ClientError as e:
