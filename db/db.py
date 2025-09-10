@@ -277,7 +277,8 @@ def check_permission(conn, user_id: str, project_id: int) -> str:
     with conn.cursor() as cur:
         cur.execute("SELECT * FROM user_project WHERE user_id = %s AND project_id = %s", (user_id, project_id))
         result = cur.fetchone()
-
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
     if result:
         return result["permission"]
     else:

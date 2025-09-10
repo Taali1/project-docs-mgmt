@@ -29,7 +29,6 @@ def post_project(project: Project, user_payload: dict = Depends(auth_requierd)) 
         },
         status_code=201)
 
-# TODO: Add documents in Response
 @router.get("/projects")
 async def get_all_projects(user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     with get_db() as conn:
@@ -71,7 +70,7 @@ async def get_project(project_id: int, user_payload: dict = Depends(auth_requier
         status_code=200
     )
 
-@router.put("projects/{project_id}")
+@router.put("/projects/{project_id}")
 def update_projects_details(project_id: int, project: Project, user_payload: dict = Depends(auth_requierd)):
     if not project_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Project ID is required")
@@ -96,9 +95,9 @@ async def remove_project(project_id: int, user_payload: dict = Depends(auth_requ
 
             await delete_s3_folder(project_id)
         
-            return JSONResponse("Deleted project", status.HTTP_204_NO_CONTENT)
+            return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content=None)
         else:
-            raise HTTPException("Unauthorized", status.HTTP_401_UNAUTHORIZED)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unauthorized")
 
 @router.get("/projects/{project_id}/documents")
 async def get_project_documents(project_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
@@ -115,24 +114,25 @@ async def get_project_documents(project_id: str = Path(...), user_payload: dict 
 
 @router.post("/projects/{project_id}/documents")
 async def upload_project_documents(files: list[UploadFile] = File(...), project_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
-    
+
     await check_file_extension(files)
     
     with get_db() as conn:
         user_permission = check_permission(conn, user_payload["sub"], project_id)
     
-    if user_permission is not None:
-        uploaded_files = await asyncio.gather(*(upload_s3_file(file) for file in files))
-        return JSONResponse(f"Files uploaded successfully: {uploaded_files}", status.HTTP_200_OK)
-    else:
+    if user_permission is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unauthorized")
+        
+
+    uploaded_files = await asyncio.gather(*(upload_s3_file(file, project_id) for file in files))
+    return JSONResponse(f"Files uploaded successfully: {uploaded_files}", status.HTTP_200_OK)
 
 @router.post("/projects/{project_id}/invite")
 async def invite_user(project_id: int, user: str = Query(...), user_payload: dict = Depends(auth_requierd), db = Depends(get_db)) -> JSONResponse:
     inviter_id = user_payload["sub"]
 
     inviter_permission = check_permission(db, inviter_id, project_id)
-    if select_user(db, user) == None:
+    if select_user(db, user) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User doesn't exist")
     
     if inviter_permission == Permission.owner.value:

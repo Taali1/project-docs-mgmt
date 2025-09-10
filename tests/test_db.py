@@ -107,7 +107,8 @@ def test_select_projects_with_permissions(db_connection, user_owner, user_partic
     assert len(result) >= 1
 
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_select_project_info(db_connection, user_owner, user_participant):
+def test_select_project_info(db_connection, mocker, user_owner, user_participant):
+    mocker.patch("db.db.check_permission", return_value = "owner")
     with db_connection.cursor() as cur:
         test_user_owner = create_user_in_db(cur, user_id=user_owner["user_id"], password=user_owner["password"])
         test_user_no_access = create_user_in_db(cur, user_id=user_participant["user_id"], password=user_participant["password"])
@@ -127,6 +128,7 @@ def test_select_project_info(db_connection, user_owner, user_participant):
     assert test_project.project_id == project_data["project_id"]
 
     # Checkin singular project for user without permissions
+    mocker.patch("db.db.check_permission", return_value = None)
     with pytest.raises(HTTPException) as exc_info:
         project_data = select_project_info(db_connection, test_user_no_access.user_id, test_project.project_id)
     assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
@@ -142,8 +144,10 @@ def test_check_permission(db_connection, user_owner, user_participant):
     result = check_permission(db_connection, test_user_owner.user_id, test_project.project_id)
     assert result == "owner"
 
-    result = check_permission(db_connection, test_user_no_access.user_id, test_project.project_id)
-    assert result is None
+    # Doesn't exist
+    with pytest.raises(HTTPException) as exc_info:
+        check_permission(db_connection, test_user_no_access.user_id, test_project.project_id)
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
     with db_connection.cursor() as cur:
         create_relation_in_db(cur, test_user_no_access.user_id, test_project.project_id, permission="participant")
