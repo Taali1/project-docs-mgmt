@@ -119,6 +119,7 @@ def test_remove_project(client, mocker, secrets, user_owner, user_participant):
     mocker.patch("views.project.delete_project", return_value = None)
     mocker.patch("views.project.delete_s3_folder", return_value = None)
     mocker.patch("views.project.check_permission", return_value = "owner")
+    
     project_id = 111
 
     response = client.delete(
