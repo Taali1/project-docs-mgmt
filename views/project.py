@@ -29,7 +29,6 @@ def post_project(project: Project, user_payload: dict = Depends(auth_requierd)) 
         },
         status_code=201)
 
-# TODO: Add documents in Response
 @router.get("/projects")
 async def get_all_projects(user_payload: dict = Depends(auth_requierd)) -> JSONResponse:
     with get_db() as conn:
@@ -51,6 +50,7 @@ async def get_project(project_id: int, user_payload: dict = Depends(auth_requier
         try:
             user_perm = check_permission(conn, user_payload["sub"], project_id)
             if user_perm is not None:
+                
                 project_info = select_project_info(conn, user_payload["sub"], project_id=project_id)
                 documents_list = await get_s3_documents_list(project_id)
             else:
@@ -96,9 +96,9 @@ async def remove_project(project_id: int, user_payload: dict = Depends(auth_requ
 
             await delete_s3_folder(project_id)
         
-            return JSONResponse("Deleted project", status.HTTP_204_NO_CONTENT)
+            return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content=None)
         else:
-            raise HTTPException("Unauthorized", status.HTTP_401_UNAUTHORIZED)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unauthorized")
 
 @router.get("/projects/{project_id}/documents")
 async def get_project_documents(project_id: str = Path(...), user_payload: dict = Depends(auth_requierd)) -> JSONResponse:

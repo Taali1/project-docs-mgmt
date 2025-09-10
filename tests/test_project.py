@@ -126,7 +126,6 @@ def test_remove_project(client, mocker, secrets, user_owner, user_participant):
 
     assert response is not None
     assert response.status_code == 204
-    assert response.json() == "Deleted project"
 
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
 def test_get_project_documents_success(client, mocker, secrets, user_owner, user_participant):
