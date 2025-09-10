@@ -208,59 +208,39 @@ def test_upload_project_documents_success(client, mocker, secrets, user_owner, u
 
 
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_invite_user_fail(db_connection, client, mocker, user_owner, secrets, user_participant):
+def test_invite_user_success(db_connection, client, mocker, user_owner, secrets, user_participant):
     mocker.patch("views.project.check_permission", return_value = Permission.owner.value)
-    with db_connection.cursor() as cur:
-        cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s) RETURNING user_id", (user_owner["user_id"], user_owner["password"]))
-        user = cur.fetchone()
-        assert user_owner["user_id"] == user["user_id"]
-        cur.execute("""
-            INSERT INTO projects (name, description, created_at, modified_at) 
-            VALUES (%s, %s, %s, %s) 
-            RETURNING project_id
-        """, 
-        (
-            user_owner["name"], 
-            user_owner["description"],
-            "12.12.2012 12:12", 
-            "12.12.2012 12:12"
-        ))
-        project_id = cur.fetchone()["project_id"]
-        assert project_id
+    mocker.patch("views.project.select_user", return_value = "user")
+    mocker.patch("views.project.insert_permission", return_value = None)
+
+    project_id = 101
 
     user_id = user_owner["user_id"]
     token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
 
     response = client.post(
-        f"/project/{project_id}/invite?user={user_id}",
+        f"/projects/{project_id}/invite?user={user_id}",
         headers = {"Authorization": f"Bearer {token}"}
     )
 
+    assert response is not None
+    assert response.status_code == 201
     assert response.json() == "User succesfully added to project"
 
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_invite_user_fail(db_connection, client, mocker, user_owner, secrets, user_participant):
-    mocker.patch("views.project.select_project_info", return_value = Permission.participant.value)
-    with db_connection.cursor() as cur:
-        cur.execute("INSERT INTO users (user_id, password) VALUES (%s, %s)", (user_owner["user_id"], user_owner["password"]))
-        cur.execute("""
-            INSERT INTO projects (name, description, created_at, modified_at) 
-            VALUES (%s, %s, %s, %s) 
-            RETURNING project_id
-        """, 
-        (
-            user_owner["name"], 
-            user_owner["description"],
-            "12.12.2012 12:12", 
-            "12.12.2012 12:12"
-        ))
-        project_id = cur.fetchone()["project_id"]
+def test_invite_user_fail(client, mocker, user_owner, secrets, user_participant):
+    mocker.patch("views.project.check_permission", return_value = Permission.participant.value)
+    mocker.patch("views.project.select_user", return_value = "user")
+    mocker.patch("views.project.insert_permission", return_value = None)
+    project_id = 101
 
-    user_id = user_owner["user_id"]
     token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
 
-    client.post(
-        f"/project/{project_id}/invite?user={user_id}",
-        headers = {"Authorization": f"Bearer {token}"},
-        json = {"user_id": user_owner["user_id"], "project_id": project_id}
+    response = client.post(
+        f"/projects/{project_id}/invite?user={user_owner['user_id']}",
+        headers = {"Authorization": f"Bearer {token}"}
     )
+
+    assert response is not None
+    assert response.status_code == 401
+    assert response.json()['detail'] == "Only owner can add user to project"

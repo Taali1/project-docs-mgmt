@@ -2,7 +2,8 @@
 # user_id, password
 users_test_data = [
     ("mike", "wazowski"),
-    ("james", "sullivan")
+    ("james", "sullivan"),
+    ("Eel", "On musk")
 ]
 """
     user_id (user), password (user)
@@ -10,7 +11,7 @@ users_test_data = [
 
 projects_test_data = [
     ("Monster INC.", "Cool movie"),
-    ("Cars", "Nice movie")
+    ("Cars", "Nice movie"),
 ]
 """
     name (project), description (project)

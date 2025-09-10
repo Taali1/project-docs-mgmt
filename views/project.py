@@ -132,7 +132,7 @@ async def invite_user(project_id: int, user: str = Query(...), user_payload: dic
     inviter_id = user_payload["sub"]
 
     inviter_permission = check_permission(db, inviter_id, project_id)
-    if select_user(db, user) == None:
+    if select_user(db, user) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User doesn't exist")
     
     if inviter_permission == Permission.owner.value:
