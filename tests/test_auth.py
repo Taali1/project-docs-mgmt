@@ -10,8 +10,9 @@ from db.models import User
 
 from datetime import datetime, timedelta
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_id, password", users_test_data)
-def test_auth_success(client, mocker, user_id, password):
+async def test_auth_success(client, mocker, user_id, password):
     mocker.patch("views.auth.select_user", return_value=None)
     mocker.patch("views.auth.insert_user", return_value=None)
 
@@ -20,8 +21,9 @@ def test_auth_success(client, mocker, user_id, password):
     assert response.status_code == 201
     assert response.text == "Registerd succesfuly"
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_id, password", users_test_data)
-def test_auth_fail(client, mocker, user_id, password):
+async def test_auth_fail(client, mocker, user_id, password):
     mocker.patch("views.auth.select_user", return_value=None)
     mocker.patch("views.auth.insert_user", return_value=None)
 
@@ -41,8 +43,9 @@ def test_auth_fail(client, mocker, user_id, password):
     assert response.status_code == 400
     assert response.json()["detail"] == "Password and Repeat password are not the same"
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_id, password", users_test_data)
-def test_login_success(client, db_connection, mocker, user_id, password, secrets):
+async def test_login_success(client, db_connection, mocker, user_id, password, secrets):
     mocker.patch("views.auth.select_user", return_value=User(user_id=user_id, password=password))
 
     with db_connection.cursor() as cur:
@@ -59,8 +62,9 @@ def test_login_success(client, db_connection, mocker, user_id, password, secrets
     user = payload.get("sub")
     assert user == user_id
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_id, password", users_test_data)
-def test_login_fail(client, db_connection, mocker, user_id, password):
+async def test_login_fail(client, db_connection, mocker, user_id, password):
     mocker.patch("views.auth.insert_user", return_value=None)
     
     with db_connection.cursor() as cur:
@@ -84,8 +88,9 @@ def test_login_fail(client, db_connection, mocker, user_id, password):
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid credentials"
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_id, password", users_test_data)
-def test_create_token(user_id, password, secrets):
+async def test_create_token(user_id, password, secrets):
 
     token = create_token(user_id)
 
@@ -95,9 +100,9 @@ def test_create_token(user_id, password, secrets):
 
     assert decoded["sub"] == user_id
 
-
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_id, password", users_test_data)
-def test_auth_requierd_success(user_id, password, secrets):
+async def test_auth_requierd_success(user_id, password, secrets):
     expire_time = datetime.utcnow() + timedelta(minutes=secrets["TOKEN_EXPIRE_IN_MINUTES"])
     token = jwt.encode({"sub": user_id, "exp": expire_time}, secrets["SECRET_KEY"], secrets["ALGORITHM"])
 
@@ -107,8 +112,9 @@ def test_auth_requierd_success(user_id, password, secrets):
 
     assert payload["sub"] == user_id
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_id, password", users_test_data)
-def test_auth_requierd_fail(user_id, password, secrets):
+async def test_auth_requierd_fail(user_id, password, secrets):
     expire_time = datetime.utcnow() + timedelta(minutes=-60)
     expired_token = jwt.encode({"sub": user_id, "exp": expire_time}, secrets["SECRET_KEY"], secrets["ALGORITHM"])
     invalid_token = jwt.encode({"sub": user_id, "exp": expire_time}, "wrong_secret_key", secrets["ALGORITHM"])
