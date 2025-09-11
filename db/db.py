@@ -137,30 +137,13 @@ def update_project(conn, project: Project):
     """
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with conn.cursor() as cur:
-        fields = []
-        values = []
-
-        if project.name:
-            fields.append("name = %s")
-            values.append(project.name)
-
-        if project.description:
-            fields.append("description = %s")
-            values.append(project.description)
-
-        fields.append("modified_at = %s")
-        values.append(current_time)
-
-        values.append(project.project_id)
-
-        query = f"""
+        cur.execute("""
             UPDATE projects
-            SET {", ".join(fields)}
+            SET  name = %s, description = %s, modified_at = %s 
             WHERE project_id = %s
             RETURNING name, description;
-        """
-
-        cur.execute(query, values)
+        """, 
+        (project.name, project.description, current_time, project.project_id))
         result = cur.fetchone()
 
         return {"name": result["name"], "description": result["description"]}
