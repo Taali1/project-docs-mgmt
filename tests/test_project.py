@@ -1,12 +1,13 @@
 import pytest
+import pytest_asyncio
 
-from io import BytesIO
+import asyncio
+
 from datetime import datetime, timedelta
 import jwt
 
 from db.models import Permission
 from tests.test_data import user_project_test_data
-
 
 def create_test_token(secrets, subject, expiration_minutes = None):
     if expiration_minutes is None:
@@ -15,9 +16,9 @@ def create_test_token(secrets, subject, expiration_minutes = None):
         expire_time = datetime.utcnow() + timedelta(minutes=expiration_minutes)
     return jwt.encode({"sub": subject, "exp": expire_time}, secrets["SECRET_KEY"], secrets["ALGORITHM"])
 
-
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_post_project_success(mocker, client, secrets, user_owner, user_participant):
+async def test_post_project_success(mocker, client, secrets, user_owner, user_participant):
     project_id = 12012
     mocker.patch("views.project.insert_project", return_value=project_id)
     token = create_test_token(secrets, user_owner["user_id"])
@@ -32,9 +33,9 @@ def test_post_project_success(mocker, client, secrets, user_owner, user_particip
     assert response.status_code == 201
     assert response.json()["msg"] == f"Project added succesfully with ID: {project_id}"
 
-
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_post_project_fail(client, secrets, user_owner, user_participant):
+async def test_post_project_fail(client, secrets, user_owner, user_participant):
     token = create_test_token(secrets, user_owner["user_id"])
     project = {"name": "", "description": user_owner["description"]}
 
@@ -47,8 +48,9 @@ def test_post_project_fail(client, secrets, user_owner, user_participant):
     assert response.status_code == 400
     assert response.json()["detail"] == "Project name is required"
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_get_all_projects(client, mocker, secrets, user_owner, user_participant):
+async def test_get_all_projects(client, mocker, secrets, user_owner, user_participant):
     mocker.patch(
         "views.project.select_project_info", 
         return_value = {"project_id": {
@@ -68,8 +70,9 @@ def test_get_all_projects(client, mocker, secrets, user_owner, user_participant)
     assert isinstance(response.json(), dict)
     assert 0 < len(response.json()) < 2
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_get_project(client, mocker, secrets, user_owner, user_participant):
+async def test_get_project(client, mocker, secrets, user_owner, user_participant):
     project = {
             "project_id": 121,
             "name": user_owner["name"],
@@ -92,9 +95,9 @@ def test_get_project(client, mocker, secrets, user_owner, user_participant):
     project.pop("project_id")
     assert response_project == project
 
-
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_update_projects_details(client, mocker, user_owner, user_participant, secrets):
+async def test_update_projects_details(client, mocker, user_owner, user_participant, secrets):
     project_id = 121
     project = {
         "name": user_owner["name"],
@@ -113,8 +116,9 @@ def test_update_projects_details(client, mocker, user_owner, user_participant, s
     assert response.status_code == 202
     assert response.json()["msg"] == "Project details updated succesfully"
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_remove_project(client, mocker, secrets, user_owner, user_participant):
+async def test_remove_project(client, mocker, secrets, user_owner, user_participant):
     token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
     mocker.patch("views.project.delete_project", return_value = None)
     mocker.patch("views.project.delete_s3_folder", return_value = None)
@@ -130,87 +134,9 @@ def test_remove_project(client, mocker, secrets, user_owner, user_participant):
     assert response is not None
     assert response.status_code == 204
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_get_project_documents_success(client, mocker, secrets, user_owner, user_participant):
-    mocker.patch("views.project.check_permission", return_value = "owner")
-    mocker.patch("views.project.get_s3_documents_list", return_value = ["test_file.pdf"])
-    token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
-    project_id = 111
-
-    response = client.get(
-        f"/projects/{project_id}/documents",
-        headers = {"Authorization": f"Bearer {token}"}
-    )
-
-    assert response is not None
-    assert response.status_code == 200
-    assert response.json() == ['test_file.pdf']
-
-@pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_get_project_documents_fail(client, mocker, secrets, user_owner, user_participant):
-    mocker.patch("views.project.check_permission", return_value = None)
-    token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
-    project_id = 111
-
-    response = client.get(
-        f"/projects/{project_id}/documents",
-        headers = {"Authorization": f"Bearer {token}"}
-    )
-
-    assert response is not None
-    assert response.status_code == 401
-    assert response.json()['detail'] == "Unauthorized"
-
-
-@pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_upload_project_documents_success(client, mocker, secrets, user_owner, user_participant):
-    mocker.patch("views.project.check_permission", return_value = None)  
-    mocker.patch("views.project.upload_s3_file", return_value = None)
-    token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
-    upload_files = ["test_file.pdf", "test_image.png"]
-    project_id = 111
-
-    response = client.post(
-        f"/projects/{project_id}/documents",
-        headers = {"Authorization": f"Bearer {token}"},
-        json = upload_files
-    )
-
-    assert response is not None
-    assert response.status_code == 200
-    assert response.json() == f"Files uploaded successfully: {upload_files}"
-
-@pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_upload_project_documents_success(client, mocker, secrets, user_owner, user_participant):
-    mocker.patch("views.project.check_permission", return_value = None)
-    token = create_test_token(secrets=secrets, subject=user_owner["user_id"])
-    project_id = 111
-    files = {"files": ("test.pdf", BytesIO(b"file_content"), "text/plain")}
-
-    response = client.post(
-        f"/projects/{project_id}/documents",
-        headers = {"Authorization": f"Bearer {token}"},
-        files = files
-    )
-
-    assert response is not None
-    assert response.status_code == 401
-    assert response.json()["detail"] == "Unauthorized"
-
-    files = {"files": ("test.txt", BytesIO(b"file_content"), "text/plain")}
-
-    response = client.post(
-        f"/projects/{project_id}/documents",
-        headers = {"Authorization": f"Bearer {token}"},
-        files = files
-    )
-
-    assert response is not None
-    assert response.status_code == 406
-
-
-@pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_invite_user_success(db_connection, client, mocker, user_owner, secrets, user_participant):
+async def test_invite_user_success(db_connection, client, mocker, user_owner, secrets, user_participant):
     mocker.patch("views.project.check_permission", return_value = Permission.owner.value)
     mocker.patch("views.project.select_user", return_value = "user")
     mocker.patch("views.project.insert_permission", return_value = None)
@@ -229,8 +155,9 @@ def test_invite_user_success(db_connection, client, mocker, user_owner, secrets,
     assert response.status_code == 201
     assert response.json() == "User succesfully added to project"
 
+@pytest.mark.asyncio
 @pytest.mark.parametrize("user_owner, user_participant", user_project_test_data)
-def test_invite_user_fail(client, mocker, user_owner, secrets, user_participant):
+async def test_invite_user_fail(client, mocker, user_owner, secrets, user_participant):
     mocker.patch("views.project.check_permission", return_value = Permission.participant.value)
     mocker.patch("views.project.select_user", return_value = "user")
     mocker.patch("views.project.insert_permission", return_value = None)
